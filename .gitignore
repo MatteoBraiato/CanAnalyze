@@ -1,0 +1,7 @@
+/.codex
+/.venv-win
+/.venv-wsl
+/.vscode
+/can_log_analyzer_spec.md
+/examples
+/requirements-wsl.lock

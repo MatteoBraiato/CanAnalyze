@@ -1,0 +1,2 @@
+[console_scripts]
+canalyze = canalyze.app:main
