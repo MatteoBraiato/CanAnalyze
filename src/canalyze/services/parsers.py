@@ -143,6 +143,43 @@ class AscParser(BaseTextLogParser):
 class TrcParser(BaseTextLogParser):
     extensions = (".trc",)
 
+    def parse(self, path: str | Path) -> ParseResult:
+        frames: list[CANFrame] = []
+        warnings: list[WarningEntry] = []
+        base_timestamp: float | None = None
+        columns: list[str] | None = None
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            stripped = line.strip()
+            if stripped.startswith(";$COLUMNS="):
+                columns = [token.strip() for token in stripped.split("=", 1)[1].split(",")]
+                continue
+
+            parsed = self._parse_line_with_columns(line, line_number, columns) if columns else self.parse_line(
+                line,
+                line_number,
+            )
+            if parsed is None:
+                continue
+            if isinstance(parsed, WarningEntry):
+                warnings.append(parsed)
+                continue
+            if base_timestamp is None:
+                base_timestamp = parsed.timestamp
+            frames.append(
+                CANFrame(
+                    timestamp=parsed.timestamp - (base_timestamp or 0.0),
+                    can_id=parsed.can_id,
+                    dlc=parsed.dlc,
+                    data=parsed.data,
+                    channel=parsed.channel,
+                    direction=parsed.direction,
+                    frame_type=parsed.frame_type,
+                    source_line=parsed.source_line,
+                )
+            )
+        return ParseResult(frames=frames, warnings=warnings)
+
     def parse_line(self, line: str, line_number: int) -> CANFrame | WarningEntry | None:
         stripped = line.strip()
         if not stripped or stripped.startswith(";"):
@@ -205,6 +242,70 @@ class TrcParser(BaseTextLogParser):
             data=data,
             channel=channel,
             direction=direction,
+            frame_type=frame_type,
+            source_line=line_number,
+        )
+
+    def _parse_line_with_columns(
+        self,
+        line: str,
+        line_number: int,
+        columns: list[str],
+    ) -> CANFrame | WarningEntry | None:
+        stripped = line.strip()
+        if not stripped or stripped.startswith(";"):
+            return None
+
+        tokens = stripped.split()
+        if not tokens:
+            return None
+
+        def column_token(column_name: str) -> str | None:
+            try:
+                column_index = columns.index(column_name)
+            except ValueError:
+                return None
+            if column_index >= len(tokens):
+                return None
+            return tokens[column_index]
+
+        timestamp_token = column_token("O")
+        if timestamp_token is None:
+            return self.parse_line(line, line_number)
+        timestamp_milliseconds = _parse_float_token(timestamp_token)
+        if timestamp_milliseconds is None:
+            return WarningEntry("trc", f"Skipped malformed TRC timestamp: {stripped}", line_number)
+        timestamp = timestamp_milliseconds / 1000.0
+
+        can_id_token = column_token("I")
+        can_id = _parse_can_id(can_id_token or "")
+        if can_id is None:
+            return WarningEntry("trc", f"Skipped line without CAN ID: {stripped}", line_number)
+
+        dlc_token = column_token("l")
+        dlc = _parse_int_token(dlc_token or "")
+        if dlc is None:
+            return WarningEntry("trc", f"Skipped line with invalid DLC: {stripped}", line_number)
+
+        data_start_index = None
+        if "D" in columns:
+            data_start_index = columns.index("D")
+        data_tokens = tokens[data_start_index:] if data_start_index is not None else []
+        data = _collect_data_bytes(data_tokens, dlc)
+        if data is None:
+            return WarningEntry("trc", f"Skipped line with invalid payload: {stripped}", line_number)
+
+        direction = column_token("d")
+        transport_type = column_token("T")
+        frame_type = "remote" if (transport_type or "").lower() in {"r", "rt", "rtr"} else "data"
+
+        return CANFrame(
+            timestamp=timestamp,
+            can_id=can_id,
+            dlc=dlc,
+            data=data,
+            channel=column_token("B") or column_token("C"),
+            direction=direction if direction in {"Rx", "Tx"} else None,
             frame_type=frame_type,
             source_line=line_number,
         )

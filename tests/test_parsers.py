@@ -94,6 +94,8 @@ class ParserTests(unittest.TestCase):
 
         self.assertEqual(len(result.frames), 2)
         self.assertEqual(result.frames[0].can_id, 0x28A)
+        self.assertAlmostEqual(result.frames[0].timestamp, 0.0, places=6)
+        self.assertAlmostEqual(result.frames[1].timestamp, 0.000547, places=6)
         self.assertEqual(result.frames[0].dlc, 2)
         self.assertEqual(result.frames[0].data, bytes([0x00, 0x00]))
         self.assertEqual(result.frames[1].can_id, 0x383)
