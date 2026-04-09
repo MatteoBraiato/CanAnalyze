@@ -158,10 +158,16 @@ class MainWindow(QMainWindow):
         load_dbc.clicked.connect(self._select_dbc)
         clear_dbc = QPushButton("Unload DBC", self)
         clear_dbc.clicked.connect(self._clear_dbc)
+        expand_tree = QPushButton("Expand All", self)
+        expand_tree.clicked.connect(self.expand_signal_tree)
+        collapse_tree = QPushButton("Collapse All", self)
+        collapse_tree.clicked.connect(self.collapse_signal_tree)
 
         toolbar.addWidget(open_log)
         toolbar.addWidget(load_dbc)
         toolbar.addWidget(clear_dbc)
+        toolbar.addWidget(expand_tree)
+        toolbar.addWidget(collapse_tree)
 
     def _select_log(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -343,6 +349,12 @@ class MainWindow(QMainWindow):
     def _on_tree_item_changed(self, item, _column: int) -> None:
         if item.childCount() == 0:
             self._refresh_plot()
+
+    def expand_signal_tree(self) -> None:
+        self.signal_tree.expandAll()
+
+    def collapse_signal_tree(self) -> None:
+        self.signal_tree.collapseAll()
 
     def _update_raw_inspector(self, *_args) -> None:
         if self.dataset is None:
