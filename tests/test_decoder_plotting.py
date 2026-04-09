@@ -10,12 +10,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from canalyze.compat import HAS_PYQTGRAPH, HAS_PYSIDE6
 from canalyze.domain.dataset import FrameDataset
-from canalyze.domain.models import CANFrame
+from canalyze.domain.models import CANFrame, PlotAxisGroup, PlotSeries
 from canalyze.services.dbc import DbcLoader
 from canalyze.services.decoder import DecoderService
 from canalyze.services.plotting import PlotModelBuilder
+from canalyze.ui.plot_widget import MultiAxisPlotWidget
 from canalyze.ui.view_helpers import materialize_filtered_rows
+
+if HAS_PYSIDE6:
+    from PySide6.QtWidgets import QApplication
+else:
+    QApplication = None
 
 
 DBC_TEXT = """
@@ -26,6 +33,14 @@ BO_ 256 EngineData: 8 ECU
 
 
 class DecoderPlottingTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        if HAS_PYSIDE6:
+            cls._app = QApplication.instance() or QApplication([])
+        else:
+            cls._app = None
+
     def test_decoder_loads_simple_dbc_and_builds_signal_samples(self) -> None:
         frames = [
             CANFrame(timestamp=0.0, can_id=0x100, dlc=8, data=bytes([0x64, 0x00, 0x1E, 0, 0, 0, 0, 0])),
@@ -133,6 +148,102 @@ BO_ 517 TestMessage: 8 ECU
 
         self.assertEqual(call_count, 1)
         self.assertEqual(visible_rows, [rows[0], rows[2], rows[4]])
+
+    def test_plot_widget_renders_single_series(self) -> None:
+        if not (HAS_PYSIDE6 and HAS_PYQTGRAPH):
+            self.skipTest("Qt plotting dependencies are not installed")
+
+        widget = MultiAxisPlotWidget()
+        self.addCleanup(widget.deleteLater)
+
+        widget.set_series(
+            [
+                PlotAxisGroup(
+                    unit="%",
+                    series=[
+                        PlotSeries(
+                            key="Message.Signal",
+                            message_name="Message",
+                            signal_name="Signal",
+                            unit="%",
+                            x_values=[0.0, 1.0, 2.0],
+                            y_values=[1.0, 2.0, 3.0],
+                        )
+                    ],
+                )
+            ]
+        )
+
+        plot_item = widget._plot_widget.getPlotItem()
+        self.assertEqual(len(plot_item.listDataItems()), 1)
+        self.assertIsNotNone(plot_item.legend)
+        self.assertEqual(len(plot_item.legend.items), 1)
+
+        widget.set_series(
+            [
+                PlotAxisGroup(
+                    unit="%",
+                    series=[
+                        PlotSeries(
+                            key="Message.Signal2",
+                            message_name="Message",
+                            signal_name="Signal2",
+                            unit="%",
+                            x_values=[0.0, 1.0],
+                            y_values=[4.0, 5.0],
+                        )
+                    ],
+                )
+            ]
+        )
+
+        plot_item = widget._plot_widget.getPlotItem()
+        self.assertEqual(len(plot_item.listDataItems()), 1)
+        self.assertEqual(len(plot_item.legend.items), 1)
+
+    def test_plot_widget_renders_secondary_axis_groups(self) -> None:
+        if not (HAS_PYSIDE6 and HAS_PYQTGRAPH):
+            self.skipTest("Qt plotting dependencies are not installed")
+
+        widget = MultiAxisPlotWidget()
+        self.addCleanup(widget.deleteLater)
+
+        widget.set_series(
+            [
+                PlotAxisGroup(
+                    unit="%",
+                    series=[
+                        PlotSeries(
+                            key="Message.SignalA",
+                            message_name="Message",
+                            signal_name="SignalA",
+                            unit="%",
+                            x_values=[0.0, 1.0],
+                            y_values=[1.0, 2.0],
+                        )
+                    ],
+                ),
+                PlotAxisGroup(
+                    unit="Hz",
+                    series=[
+                        PlotSeries(
+                            key="Message.SignalB",
+                            message_name="Message",
+                            signal_name="SignalB",
+                            unit="Hz",
+                            x_values=[0.0, 1.0],
+                            y_values=[10.0, 20.0],
+                        )
+                    ],
+                ),
+            ]
+        )
+
+        plot_item = widget._plot_widget.getPlotItem()
+        self.assertEqual(len(plot_item.listDataItems()), 1)
+        self.assertEqual(len(widget._unit_views), 1)
+        self.assertTrue(plot_item.getAxis("right").isVisible())
+        self.assertEqual(len(plot_item.legend.items), 2)
 
 
 if __name__ == "__main__":

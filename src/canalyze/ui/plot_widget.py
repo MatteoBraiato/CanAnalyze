@@ -47,9 +47,7 @@ class MultiAxisPlotWidget(QWidget):
         plot_item = self._plot_widget.getPlotItem()
         self._clear_dynamic_axes(plot_item)
         plot_item.clear()
-        if plot_item.legend is not None:
-            plot_item.legend.clear()
-
+        self._clear_legend(plot_item)
         colors = cycle(["#1f77b4", "#d62728", "#2ca02c", "#ff7f0e", "#9467bd", "#8c564b"])
         plot_item.setLabel("bottom", "Time", units="s")
 
@@ -67,7 +65,6 @@ class MultiAxisPlotWidget(QWidget):
                 pen=pg.mkPen(next(colors), width=2),
                 name=f"{series.message_name}.{series.signal_name}",
                 downsampleMethod="peak",
-                clipToView=True,
                 autoDownsample=True,
             )
 
@@ -100,7 +97,6 @@ class MultiAxisPlotWidget(QWidget):
                     y=series.y_values,
                     pen=pg.mkPen(next(colors), width=2),
                     autoDownsample=True,
-                    clipToView=True,
                     downsampleMethod="peak",
                 )
                 view_box.addItem(curve)
@@ -114,11 +110,19 @@ class MultiAxisPlotWidget(QWidget):
         base_view.enableAutoRange(axis=pg.ViewBox.XYAxes, enable=True)
         base_view.autoRange()
 
+    def _clear_legend(self, plot_item) -> None:
+        if plot_item.legend is None:
+            return
+        entries = [label.text for _sample, label in plot_item.legend.items]
+        for entry in entries:
+            plot_item.legend.removeItem(entry)
+
     def _clear_dynamic_axes(self, plot_item) -> None:
-        try:
-            plot_item.vb.sigResized.disconnect(self._sync_views)
-        except Exception:
-            pass
+        if self._unit_views:
+            try:
+                plot_item.vb.sigResized.disconnect(self._sync_views)
+            except Exception:
+                pass
 
         plot_item.showAxis("right", False)
         plot_item.getAxis("right").setLabel("")
