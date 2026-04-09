@@ -11,6 +11,7 @@ Current capabilities:
 - overlay signals with separate Y-axes when their engineering units differ
 - expand or collapse the full message tree with one click
 - switch between light and dark theme during the current session
+- show the application version in the main window title and status area
 
 ## Dependency Management
 
@@ -23,6 +24,8 @@ Use separate virtual environments per OS:
 - `.venv-wsl` for optional WSL development and test runs
 
 The checked-in `requirements-wsl.lock` captures a known working WSL environment. Do not reuse one virtual environment across Windows and WSL.
+
+The application version is defined in `pyproject.toml` and exposed at runtime through package metadata. The installed app shows that version in the main window title so you can identify which build a user has installed.
 
 ## Windows Setup
 
@@ -51,6 +54,41 @@ Or:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\run_windows.ps1
 ```
+
+## Windows Packaging
+
+For distribution to end users, build a normal Windows installer rather than shipping a raw Python environment.
+
+Maintainer workflow:
+
+1. Prepare the Windows virtual environment.
+2. Build the standalone application bundle.
+3. Build the installer.
+
+Bundle build:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build_windows_bundle.ps1
+```
+
+Installer build:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build_windows_installer.ps1
+```
+
+Packaging notes:
+
+- the bundle is generated with `pyside6-deploy` using `pysidedeploy.spec`
+- the installer is generated with Inno Setup using `installer/CanAnalyze.iss`
+- installer output is written to `release/`
+- the installer filename includes the app version
+- the installed app shows the same version in its window title
+
+Prerequisites for packaging on Windows:
+
+- `.venv-win` created with `scripts/setup_windows.ps1`
+- Inno Setup 6 installed on the packaging machine
 
 ## WSL Setup
 
@@ -118,6 +156,7 @@ Notes:
 - signals with the same unit share one axis
 - signals with different units render on separate synchronized Y-axes
 - the selected theme is session-only and resets on the next launch
+- the app version is visible in the main window title
 
 ## Testing
 

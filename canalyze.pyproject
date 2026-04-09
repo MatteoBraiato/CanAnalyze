@@ -1,0 +1,27 @@
+{
+  "files": [
+    "src/canalyze/__init__.py",
+    "src/canalyze/__main__.py",
+    "src/canalyze/app.py",
+    "src/canalyze/compat.py",
+    "src/canalyze/version.py",
+    "src/canalyze/domain/__init__.py",
+    "src/canalyze/domain/dataset.py",
+    "src/canalyze/domain/models.py",
+    "src/canalyze/services/__init__.py",
+    "src/canalyze/services/dbc.py",
+    "src/canalyze/services/decoder.py",
+    "src/canalyze/services/filtering.py",
+    "src/canalyze/services/loader.py",
+    "src/canalyze/services/parsers.py",
+    "src/canalyze/services/plotting.py",
+    "src/canalyze/ui/__init__.py",
+    "src/canalyze/ui/dbc_conflict_dialog.py",
+    "src/canalyze/ui/main_window.py",
+    "src/canalyze/ui/models.py",
+    "src/canalyze/ui/plot_widget.py",
+    "src/canalyze/ui/startup_dialog.py",
+    "src/canalyze/ui/view_helpers.py",
+    "src/canalyze/ui/workers.py"
+  ]
+}

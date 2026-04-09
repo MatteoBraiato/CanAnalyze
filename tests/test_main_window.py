@@ -14,6 +14,7 @@ from canalyze.services.decoder import DecoderService
 from canalyze.services.filtering import FilterEngine
 from canalyze.services.loader import DatasetLoader
 from canalyze.services.plotting import PlotModelBuilder
+from canalyze.version import __version__
 
 if HAS_PYSIDE6:
     from PySide6.QtWidgets import QApplication, QTreeWidgetItem
@@ -48,6 +49,17 @@ class MainWindowTests(unittest.TestCase):
 
         window.collapse_signal_tree()
         self.assertFalse(message_item.isExpanded())
+
+    def test_window_title_includes_version(self) -> None:
+        window = MainWindow(
+            loader=DatasetLoader(),
+            decoder=DecoderService(),
+            filter_engine=FilterEngine(),
+            plot_builder=PlotModelBuilder(),
+        )
+        self.addCleanup(window.deleteLater)
+
+        self.assertIn(__version__, window.windowTitle())
 
 
 if __name__ == "__main__":

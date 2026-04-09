@@ -144,13 +144,6 @@ class MultiAxisPlotWidget(QWidget):
             axis.setPen(self._axis_color)
             axis.setTextPen(self._axis_color)
 
-    def _clear_legend(self, plot_item) -> None:
-        if plot_item.legend is None:
-            return
-        entries = [label.text for _sample, label in plot_item.legend.items]
-        for entry in entries:
-            plot_item.legend.removeItem(entry)
-
     def _clear_dynamic_axes(self, plot_item) -> None:
         if self._unit_views:
             try:

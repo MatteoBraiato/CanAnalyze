@@ -7,6 +7,7 @@ from canalyze.services.decoder import DecoderService
 from canalyze.services.filtering import FilterEngine
 from canalyze.services.loader import DatasetLoader
 from canalyze.services.plotting import PlotModelBuilder
+from canalyze.version import APP_NAME, __version__
 
 if HAS_PYSIDE6:
     from PySide6.QtWidgets import QApplication, QMessageBox, QDialog
@@ -24,6 +25,8 @@ def main() -> int:
         return 1
 
     app = QApplication(sys.argv)
+    app.setApplicationName(APP_NAME)
+    app.setApplicationVersion(__version__)
     loader = DatasetLoader()
     decoder = DecoderService()
     filter_engine = FilterEngine()

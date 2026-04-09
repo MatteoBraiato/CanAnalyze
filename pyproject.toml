@@ -19,6 +19,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+packaging = [
+  "Nuitka>=2.6",
+  "ordered-set>=4.1",
+  "zstandard>=0.23",
+]
 
 [project.scripts]
 canalyze = "canalyze.app:main"

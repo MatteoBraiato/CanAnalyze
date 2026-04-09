@@ -14,6 +14,7 @@ from canalyze.ui.models import FrameTableModel
 from canalyze.ui.plot_widget import MultiAxisPlotWidget
 from canalyze.ui.view_helpers import materialize_filtered_rows
 from canalyze.ui.workers import FunctionWorker
+from canalyze.version import APP_NAME, __version__
 
 if HAS_PYSIDE6:
     from PySide6.QtCore import Qt
@@ -123,12 +124,12 @@ class MainWindow(QMainWindow):
         self._pending_dbc_path: str | None = None
         self._theme_mode = "light"
 
-        self.setWindowTitle("CAN Log Analyzer")
+        self.setWindowTitle(f"{APP_NAME} v{__version__}")
         self.resize(1440, 900)
 
         self._build_ui()
         self._apply_theme()
-        self._set_status("No log loaded.")
+        self._set_status(f"No log loaded. Version {__version__}.")
 
     def load_log(self, log_path: str, dbc_path: str | None = None) -> None:
         self._set_status(f"Loading {Path(log_path).name}...")
