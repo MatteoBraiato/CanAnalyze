@@ -40,6 +40,66 @@ else:
     QMainWindow = object
 
 
+LIGHT_THEME_STYLESHEET = """
+QWidget {
+    background-color: #f5f6f8;
+    color: #1c1f24;
+}
+QLineEdit, QPlainTextEdit, QTreeWidget, QTableView {
+    background-color: #ffffff;
+    color: #1c1f24;
+    border: 1px solid #c9ced6;
+}
+QPushButton {
+    background-color: #e7ebf0;
+    color: #1c1f24;
+    border: 1px solid #c9ced6;
+    padding: 4px 10px;
+}
+QPushButton:hover {
+    background-color: #dbe2ea;
+}
+QHeaderView::section {
+    background-color: #e7ebf0;
+    color: #1c1f24;
+}
+QStatusBar {
+    background-color: #e7ebf0;
+    color: #1c1f24;
+}
+""".strip()
+
+
+DARK_THEME_STYLESHEET = """
+QWidget {
+    background-color: #171a1f;
+    color: #eef2f7;
+}
+QLineEdit, QPlainTextEdit, QTreeWidget, QTableView {
+    background-color: #20242c;
+    color: #eef2f7;
+    border: 1px solid #3c4452;
+}
+QPushButton {
+    background-color: #29303a;
+    color: #eef2f7;
+    border: 1px solid #475264;
+    padding: 4px 10px;
+}
+QPushButton:hover {
+    background-color: #313949;
+}
+QHeaderView::section {
+    background-color: #29303a;
+    color: #eef2f7;
+}
+QStatusBar {
+    background-color: #29303a;
+    color: #eef2f7;
+}
+""".strip()
+
+
 class MainWindow(QMainWindow):
     def __init__(
         self,
@@ -61,11 +121,13 @@ class MainWindow(QMainWindow):
         self.dbc_database = None
         self._workers: list[FunctionWorker] = []
         self._pending_dbc_path: str | None = None
+        self._theme_mode = "light"
 
         self.setWindowTitle("CAN Log Analyzer")
         self.resize(1440, 900)
 
         self._build_ui()
+        self._apply_theme()
         self._set_status("No log loaded.")
 
     def load_log(self, log_path: str, dbc_path: str | None = None) -> None:
@@ -158,10 +220,13 @@ class MainWindow(QMainWindow):
         load_dbc.clicked.connect(self._select_dbc)
         clear_dbc = QPushButton("Unload DBC", self)
         clear_dbc.clicked.connect(self._clear_dbc)
+        self.theme_toggle_button = QPushButton("Dark Theme", self)
+        self.theme_toggle_button.clicked.connect(self.toggle_theme)
 
         toolbar.addWidget(open_log)
         toolbar.addWidget(load_dbc)
         toolbar.addWidget(clear_dbc)
+        toolbar.addWidget(self.theme_toggle_button)
 
     def _select_log(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
@@ -343,6 +408,18 @@ class MainWindow(QMainWindow):
     def _on_tree_item_changed(self, item, _column: int) -> None:
         if item.childCount() == 0:
             self._refresh_plot()
+
+    def toggle_theme(self) -> None:
+        self._theme_mode = "dark" if self._theme_mode == "light" else "light"
+        self._apply_theme()
+
+    def _apply_theme(self) -> None:
+        stylesheet = DARK_THEME_STYLESHEET if self._theme_mode == "dark" else LIGHT_THEME_STYLESHEET
+        self.setStyleSheet(stylesheet)
+        if hasattr(self, "theme_toggle_button"):
+            self.theme_toggle_button.setText("Light Theme" if self._theme_mode == "dark" else "Dark Theme")
+        if hasattr(self, "plot_widget"):
+            self.plot_widget.set_theme(self._theme_mode)
 
     def _update_raw_inspector(self, *_args) -> None:
         if self.dataset is None:

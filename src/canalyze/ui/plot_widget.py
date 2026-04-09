@@ -22,6 +22,9 @@ class MultiAxisPlotWidget(QWidget):
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._unit_views = []
+        self._background_color = "w"
+        self._grid_alpha = 0.25
+        self._axis_color = "#1c1f24"
 
         if pg is None:
             self._placeholder = QLabel(
@@ -35,10 +38,22 @@ class MultiAxisPlotWidget(QWidget):
 
         pg.setConfigOptions(antialias=False)
         self._plot_widget = pg.PlotWidget(parent=self)
-        self._plot_widget.setBackground("w")
-        self._plot_widget.showGrid(x=True, y=True, alpha=0.25)
+        self._plot_widget.setBackground(self._background_color)
+        self._plot_widget.showGrid(x=True, y=True, alpha=self._grid_alpha)
         self._plot_widget.addLegend(offset=(10, 10))
         self._layout.addWidget(self._plot_widget)
+        self._apply_theme_to_plot()
+
+    def set_theme(self, theme_name: str) -> None:
+        if theme_name == "dark":
+            self._background_color = "#11151b"
+            self._grid_alpha = 0.18
+            self._axis_color = "#eef2f7"
+        else:
+            self._background_color = "w"
+            self._grid_alpha = 0.25
+            self._axis_color = "#1c1f24"
+        self._apply_theme_to_plot()
 
     def set_series(self, axis_groups: list[PlotAxisGroup]) -> None:
         if self._plot_widget is None:
@@ -49,6 +64,7 @@ class MultiAxisPlotWidget(QWidget):
         plot_item.clear()
         if plot_item.legend is not None:
             plot_item.legend.clear()
+        self._apply_theme_to_plot()
 
         colors = cycle(["#1f77b4", "#d62728", "#2ca02c", "#ff7f0e", "#9467bd", "#8c564b"])
         plot_item.setLabel("bottom", "Time", units="s")
@@ -113,6 +129,17 @@ class MultiAxisPlotWidget(QWidget):
         base_view.sigResized.connect(self._sync_views)
         base_view.enableAutoRange(axis=pg.ViewBox.XYAxes, enable=True)
         base_view.autoRange()
+
+    def _apply_theme_to_plot(self) -> None:
+        if self._plot_widget is None:
+            return
+        self._plot_widget.setBackground(self._background_color)
+        plot_item = self._plot_widget.getPlotItem()
+        plot_item.showGrid(x=True, y=True, alpha=self._grid_alpha)
+        for axis_name in ("left", "bottom", "right"):
+            axis = plot_item.getAxis(axis_name)
+            axis.setPen(self._axis_color)
+            axis.setTextPen(self._axis_color)
 
     def _clear_dynamic_axes(self, plot_item) -> None:
         try:
