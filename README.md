@@ -84,11 +84,14 @@ Packaging notes:
 - installer output is written to `release/`
 - the installer filename includes the app version
 - the installed app shows the same version in its window title
+- the bundle script validates that `dist\CanAnalyze\CanAnalyze.exe` exists before reporting success
 
 Prerequisites for packaging on Windows:
 
 - `.venv-win` created with `scripts/setup_windows.ps1`
+- Microsoft C++ Build Tools or another supported C compiler available for Nuitka
 - Inno Setup 6 installed on the packaging machine
+- `dumpbin.exe` is recommended for more reliable dependency discovery during deploy
 
 ## WSL Setup
 

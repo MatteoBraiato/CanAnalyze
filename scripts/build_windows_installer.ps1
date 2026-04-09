@@ -5,6 +5,7 @@ $venvPath = Join-Path $repoRoot ".venv-win"
 $pythonExe = Join-Path $venvPath "Scripts\python.exe"
 $issPath = Join-Path $repoRoot "installer\CanAnalyze.iss"
 $distPath = Join-Path $repoRoot "dist\CanAnalyze"
+$bundleExe = Join-Path $distPath "CanAnalyze.exe"
 $isccExe = $null
 
 $candidateIscc = @(
@@ -35,6 +36,10 @@ if (-not $isccExe) {
 
 if (-not (Test-Path $distPath)) {
     throw "Expected Windows bundle not found at '$distPath'."
+}
+
+if (-not (Test-Path $bundleExe)) {
+    throw "Expected packaged executable not found at '$bundleExe'."
 }
 
 $appVersion = & $pythonExe -c "import tomllib, pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))['project']['version'])"
