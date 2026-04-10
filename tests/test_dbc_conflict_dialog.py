@@ -48,6 +48,21 @@ class DbcConflictDialogTests(unittest.TestCase):
         self.assertGreaterEqual(dialog.width(), 780)
         self.assertGreaterEqual(dialog.height(), 220)
 
+    def test_dialog_styles_switch_cleanly_between_dark_and_light_themes(self) -> None:
+        dialog = DbcConflictResolutionDialog(
+            [DbcConflict(message_name="EngineData", signal_names=("Speed", "Temp"))],
+            theme_name="dark",
+        )
+        self.addCleanup(dialog.deleteLater)
+
+        self.assertIn("#171a1f", dialog.styleSheet())
+        self.assertIn("#20242c", dialog.styleSheet())
+
+        dialog.set_theme("light")
+
+        self.assertIn("#f5f6f8", dialog.styleSheet())
+        self.assertIn("#ffffff", dialog.styleSheet())
+
 
 if __name__ == "__main__":
     unittest.main()

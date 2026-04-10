@@ -22,10 +22,11 @@ else:
 
 
 class DbcConflictResolutionDialog(QDialog):
-    def __init__(self, conflicts: list[DbcConflict], parent=None) -> None:
+    def __init__(self, conflicts: list[DbcConflict], parent=None, theme_name: str = "dark") -> None:
         super().__init__(parent)
         self.setWindowTitle("Resolve DBC Signal Conflicts")
         self._selectors: dict[tuple[str, tuple[str, ...]], QComboBox] = {}
+        self._theme_name = theme_name
 
         title = QLabel("Resolve overlapping DBC signals", self)
         title.setObjectName("dialogTitle")
@@ -61,6 +62,7 @@ class DbcConflictResolutionDialog(QDialog):
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
             parent=self,
         )
+        buttons.setObjectName("dialogButtons")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
 
@@ -73,31 +75,7 @@ class DbcConflictResolutionDialog(QDialog):
         layout.addWidget(scroller, stretch=1)
         layout.addWidget(buttons)
 
-        self.setStyleSheet(
-            """
-            QLabel#dialogTitle {
-                font-size: 18px;
-                font-weight: 700;
-            }
-            QLabel#dialogIntro {
-                color: palette(mid);
-            }
-            QLabel#dialogSummary {
-                font-weight: 600;
-            }
-            QFrame#conflictCard {
-                border: 1px solid palette(midlight);
-                border-radius: 8px;
-                background-color: palette(base);
-            }
-            QLabel#messageName {
-                font-weight: 600;
-            }
-            QLabel#signalNames {
-                color: palette(mid);
-            }
-            """
-        )
+        self.set_theme(theme_name)
         self._fit_to_content(len(conflicts))
 
     def selections(self) -> dict[tuple[str, tuple[str, ...]], str | None]:
@@ -105,6 +83,90 @@ class DbcConflictResolutionDialog(QDialog):
             conflict_key: selector.currentData()
             for conflict_key, selector in self._selectors.items()
         }
+
+    def set_theme(self, theme_name: str) -> None:
+        self._theme_name = theme_name
+        if theme_name == "light":
+            colors = {
+                "background": "#f5f6f8",
+                "text": "#1c1f24",
+                "muted": "#5f6b7a",
+                "card": "#ffffff",
+                "border": "#c9ced6",
+                "button": "#e7ebf0",
+                "button_hover": "#dbe2ea",
+                "input": "#ffffff",
+            }
+        else:
+            colors = {
+                "background": "#171a1f",
+                "text": "#eef2f7",
+                "muted": "#aeb9c7",
+                "card": "#20242c",
+                "border": "#475264",
+                "button": "#29303a",
+                "button_hover": "#313949",
+                "input": "#20242c",
+            }
+
+        self.setStyleSheet(
+            f"""
+            QDialog {{
+                background-color: {colors["background"]};
+                color: {colors["text"]};
+            }}
+            QLabel {{
+                color: {colors["text"]};
+            }}
+            QLabel#dialogTitle {{
+                font-size: 18px;
+                font-weight: 700;
+            }}
+            QLabel#dialogIntro,
+            QLabel#signalNames {{
+                color: {colors["muted"]};
+            }}
+            QLabel#dialogSummary,
+            QLabel#messageName {{
+                font-weight: 600;
+            }}
+            QScrollArea {{
+                background-color: transparent;
+                border: none;
+            }}
+            QScrollArea > QWidget > QWidget {{
+                background-color: transparent;
+            }}
+            QFrame#conflictCard {{
+                border: 1px solid {colors["border"]};
+                border-radius: 8px;
+                background-color: {colors["card"]};
+            }}
+            QComboBox {{
+                background-color: {colors["input"]};
+                color: {colors["text"]};
+                border: 1px solid {colors["border"]};
+                border-radius: 6px;
+                padding: 4px 8px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {colors["card"]};
+                color: {colors["text"]};
+                border: 1px solid {colors["border"]};
+                selection-background-color: {colors["button_hover"]};
+            }}
+            QDialogButtonBox QPushButton {{
+                background-color: {colors["button"]};
+                color: {colors["text"]};
+                border: 1px solid {colors["border"]};
+                border-radius: 6px;
+                padding: 6px 12px;
+            }}
+            QDialogButtonBox QPushButton:hover {{
+                background-color: {colors["button_hover"]};
+            }}
+            """
+        )
 
     def _build_conflict_row(self, conflict: DbcConflict) -> QFrame:
         card = QFrame(self)

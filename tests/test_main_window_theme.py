@@ -39,14 +39,8 @@ class MainWindowThemeTests(unittest.TestCase):
         )
         self.addCleanup(window.deleteLater)
 
-        self.assertEqual(window._theme_mode, "light")
-        self.assertIsInstance(window.theme_toggle_button, QToolButton)
-        self.assertEqual(window.theme_toggle_button.toolTip(), "Switch to dark theme")
-        self.assertFalse(window.theme_toggle_button.icon().isNull())
-
-        window.toggle_theme()
-
         self.assertEqual(window._theme_mode, "dark")
+        self.assertIsInstance(window.theme_toggle_button, QToolButton)
         self.assertEqual(window.theme_toggle_button.toolTip(), "Switch to light theme")
         self.assertFalse(window.theme_toggle_button.icon().isNull())
         self.assertIn("#171a1f", window.styleSheet())
@@ -56,8 +50,16 @@ class MainWindowThemeTests(unittest.TestCase):
 
         self.assertEqual(window._theme_mode, "light")
         self.assertEqual(window.theme_toggle_button.toolTip(), "Switch to dark theme")
+        self.assertFalse(window.theme_toggle_button.icon().isNull())
         self.assertIn("#f5f6f8", window.styleSheet())
         self.assertEqual(window.plot_widget._axis_color, "#1c1f24")
+
+        window.toggle_theme()
+
+        self.assertEqual(window._theme_mode, "dark")
+        self.assertEqual(window.theme_toggle_button.toolTip(), "Switch to light theme")
+        self.assertIn("#171a1f", window.styleSheet())
+        self.assertEqual(window.plot_widget._axis_color, "#eef2f7")
 
 
 if __name__ == "__main__":

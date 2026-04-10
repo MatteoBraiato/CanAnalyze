@@ -125,7 +125,7 @@ class MainWindow(QMainWindow):
         self.dbc_database = None
         self._workers: list[FunctionWorker] = []
         self._pending_dbc_path: str | None = None
-        self._theme_mode = "light"
+        self._theme_mode = "dark"
 
         self.setWindowTitle(f"{APP_NAME} v{__version__}")
         self.resize(1440, 900)
@@ -560,7 +560,7 @@ class MainWindow(QMainWindow):
         if not conflicts:
             return {}
 
-        dialog = DbcConflictResolutionDialog(conflicts, self)
+        dialog = DbcConflictResolutionDialog(conflicts, self, theme_name=self._theme_mode)
         if dialog.exec():
             return dialog.selections()
         return {}
