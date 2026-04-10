@@ -9,9 +9,14 @@ Current capabilities:
 - inspect raw frames and decoded message names in the message table
 - select decoded signals from the `Messages / Signals` tree and plot them over time
 - overlay signals with separate Y-axes when their engineering units differ
+- pan or zoom the plot area with linked multi-axis movement across all rendered signals
+- inspect plot samples on hover with timestamp, decoded value, and engineering unit
+- click a hovered plot sample to select and reveal the matching raw CAN frame in the table
 - expand or collapse the full message tree with one click
-- switch between light and dark theme during the current session
+- switch between light and dark theme during the current session with the top-right sun/moon toggle
+- resolve two-signal DBC overlaps in a compact conflict dialog before decoding continues
 - show the application version in the main window title and status area
+- use the bundled application icon in the window chrome, taskbar, installer shortcuts, and Explorer
 
 ## Dependency Management
 
@@ -84,6 +89,7 @@ Packaging notes:
 - installer output is written to `release/`
 - the installer filename includes the app version
 - the installed app shows the same version in its window title
+- the Windows bundle embeds `icon/icon.ico`, and the running app loads `icon/icon.png` as the Qt window icon
 - the installed Windows app is built as a GUI executable, so it should not open a command prompt window
 - the bundle script auto-detects Visual Studio Build Tools and bootstraps the developer shell when needed
 - the bundle script validates that `dist\CanAnalyze.dist\CanAnalyze.exe` exists before reporting success
@@ -155,12 +161,15 @@ Toolbar actions:
 - `Load DBC`: attach or replace a DBC file
 - `Unload DBC`: return to raw-frame mode
 - `Expand All` / `Collapse All`: control the full message tree
-- `Dark Theme` / `Light Theme`: toggle the session theme
+- top-right sun/moon toggle: switch the session theme
 
 Notes:
 
 - signals with the same unit share one axis
-- signals with different units render on separate synchronized Y-axes
+- signals with different units render on separate synchronized Y-axes and move together during pan/zoom
+- hovering a curve shows the sample time and decoded value, including engineering unit when available
+- left-clicking a hovered sample selects the matching frame in the message table and refreshes the raw inspector
+- two-signal DBC overlaps open a compact resolution dialog before decode starts
 - the selected theme is session-only and resets on the next launch
 - the app version is visible in the main window title
 
