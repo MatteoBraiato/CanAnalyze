@@ -22,7 +22,7 @@ class PackagingConfigTests(unittest.TestCase):
         self.assertEqual(config.get("nuitka", "mode"), "standalone")
         self.assertEqual(
             config.get("nuitka", "extra_args"),
-            "--output-filename=CanAnalyze.exe --windows-console-mode=disable",
+            "--output-filename=CanAnalyze.exe --windows-console-mode=disable --include-package=pyqtgraph",
         )
         self.assertTrue((self.repo_root / "icon" / "icon.png").is_file())
         self.assertTrue((self.repo_root / "icon" / "icon.ico").is_file())
