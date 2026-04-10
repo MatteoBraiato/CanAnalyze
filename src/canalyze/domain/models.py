@@ -76,6 +76,7 @@ class SignalDescriptor:
 @dataclass(slots=True)
 class PlotSeries:
     key: str
+    can_id: int
     message_name: str
     signal_name: str
     unit: str

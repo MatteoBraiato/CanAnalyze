@@ -54,7 +54,7 @@ class FilterEngineTests(unittest.TestCase):
         )
         self.assertEqual(indices, [0, 2])
         signal_keys = self.engine.filtered_signal_keys(self.dataset, indices)
-        self.assertEqual(signal_keys, {("EngineData", "Speed")})
+        self.assertEqual(signal_keys, {(0x100, "EngineData", "Speed")})
 
     def test_filter_by_combined_can_message_pair_is_pair_exact(self) -> None:
         dataset = FrameDataset.from_frames(

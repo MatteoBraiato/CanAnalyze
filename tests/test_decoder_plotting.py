@@ -82,7 +82,7 @@ class DecoderPlottingTests(unittest.TestCase):
         builder = PlotModelBuilder()
         groups = builder.build(
             decoded,
-            selected_signals={("EngineData", "Speed"), ("EngineData", "Temp")},
+            selected_signals={(0x100, "EngineData", "Speed"), (0x100, "EngineData", "Temp")},
         )
 
         self.assertEqual(len(groups), 2)
@@ -165,6 +165,7 @@ BO_ 517 TestMessage: 8 ECU
                     series=[
                         PlotSeries(
                             key="Message.Signal",
+                            can_id=0x100,
                             message_name="Message",
                             signal_name="Signal",
                             unit="%",
@@ -189,6 +190,7 @@ BO_ 517 TestMessage: 8 ECU
                     series=[
                         PlotSeries(
                             key="Message.Signal2",
+                            can_id=0x100,
                             message_name="Message",
                             signal_name="Signal2",
                             unit="%",
@@ -214,6 +216,7 @@ BO_ 517 TestMessage: 8 ECU
 
         first_series = PlotSeries(
             key="Message.SignalA",
+            can_id=0x100,
             message_name="Message",
             signal_name="SignalA",
             unit="%",
@@ -223,6 +226,7 @@ BO_ 517 TestMessage: 8 ECU
         )
         second_series = PlotSeries(
             key="Message.SignalB",
+            can_id=0x200,
             message_name="Message",
             signal_name="SignalB",
             unit="%",
@@ -249,6 +253,7 @@ BO_ 517 TestMessage: 8 ECU
 
         series = PlotSeries(
             key="Message.Signal",
+            can_id=0x100,
             message_name="Message",
             signal_name="Signal",
             unit="%",
@@ -281,6 +286,7 @@ BO_ 517 TestMessage: 8 ECU
                     series=[
                         PlotSeries(
                             key="Message.SignalA",
+                            can_id=0x100,
                             message_name="Message",
                             signal_name="SignalA",
                             unit="%",
@@ -295,6 +301,7 @@ BO_ 517 TestMessage: 8 ECU
                     series=[
                         PlotSeries(
                             key="Message.SignalB",
+                            can_id=0x200,
                             message_name="Message",
                             signal_name="SignalB",
                             unit="Hz",
@@ -330,6 +337,7 @@ BO_ 517 TestMessage: 8 ECU
                     series=[
                         PlotSeries(
                             key="Message.SignalA",
+                            can_id=0x100,
                             message_name="Message",
                             signal_name="SignalA",
                             unit="%",
@@ -344,6 +352,7 @@ BO_ 517 TestMessage: 8 ECU
                     series=[
                         PlotSeries(
                             key="Message.SignalB",
+                            can_id=0x200,
                             message_name="Message",
                             signal_name="SignalB",
                             unit="Hz",
@@ -381,6 +390,7 @@ BO_ 517 TestMessage: 8 ECU
                     series=[
                         PlotSeries(
                             key="Message.Signal",
+                            can_id=0x100,
                             message_name="Message",
                             signal_name="Signal",
                             unit="%",

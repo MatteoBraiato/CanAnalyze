@@ -19,6 +19,7 @@ from canalyze.services.plotting import PlotModelBuilder
 from canalyze.version import __version__
 
 if HAS_PYSIDE6:
+    from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QApplication, QTreeWidgetItem
 
     from canalyze.ui.main_window import MainWindow
@@ -148,6 +149,32 @@ class MainWindowTests(unittest.TestCase):
 
         self.assertEqual(len(criteria.can_message_pairs or set()), 1)
         self.assertEqual(criteria.can_message_pairs, {CanMessageIdentity(0x100, "EngineData")})
+
+    def test_signal_tree_shows_can_id_and_message_name_together(self) -> None:
+        window = MainWindow(
+            loader=DatasetLoader(),
+            decoder=DecoderService(),
+            filter_engine=FilterEngine(),
+            plot_builder=PlotModelBuilder(),
+        )
+        self.addCleanup(window.deleteLater)
+
+        window.dataset = FrameDataset.from_frames(
+            [CANFrame(timestamp=0.1, can_id=0x100, dlc=2, data=bytes([0x01, 0x02]))]
+        )
+        window.dataset.signal_samples = [
+            type(
+                "Sample",
+                (),
+                {"can_id": 0x100, "message_name": "EngineData", "name": "Speed", "frame_index": 0},
+            )()
+        ]
+        window.filtered_indices = [0]
+        window._refresh_views()
+
+        top_level = window.signal_tree.topLevelItem(0)
+        self.assertEqual(top_level.text(0), "0x100 | EngineData")
+        self.assertEqual(top_level.child(0).data(0, Qt.UserRole), (0x100, "EngineData", "Speed"))
 
 
 if __name__ == "__main__":

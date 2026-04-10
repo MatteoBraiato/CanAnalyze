@@ -10,21 +10,22 @@ class PlotModelBuilder:
     def build(
         self,
         dataset: FrameDataset,
-        selected_signals: set[tuple[str, str]],
+        selected_signals: set[tuple[int, str, str]],
         matched_indices: list[int] | None = None,
     ) -> list[PlotAxisGroup]:
         matched = set(matched_indices or range(len(dataset.frames)))
         grouped_series: dict[str, dict[str, PlotSeries]] = defaultdict(dict)
 
         for sample in dataset.signal_samples:
-            key = (sample.message_name, sample.name)
+            key = (sample.can_id, sample.message_name, sample.name)
             if key not in selected_signals or sample.frame_index not in matched:
                 continue
             unit = sample.unit or "-"
-            series_key = f"{sample.message_name}.{sample.name}"
+            series_key = f"0x{sample.can_id:X}|{sample.message_name}.{sample.name}"
             if series_key not in grouped_series[unit]:
                 grouped_series[unit][series_key] = PlotSeries(
                     key=series_key,
+                    can_id=sample.can_id,
                     message_name=sample.message_name,
                     signal_name=sample.name,
                     unit=sample.unit or "",

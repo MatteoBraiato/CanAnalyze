@@ -425,14 +425,21 @@ class MainWindow(QMainWindow):
             return
 
         allowed_keys = self.filter_engine.filtered_signal_keys(self.dataset, self.filtered_indices)
-        message_nodes: dict[str, QTreeWidgetItem] = {}
-        for message_name, signal_name in sorted(allowed_keys):
-            message_item = message_nodes.get(message_name)
+        message_nodes: dict[tuple[int, str], QTreeWidgetItem] = {}
+        for can_id, message_name, signal_name in sorted(
+            allowed_keys,
+            key=lambda item: (item[0], item[1], item[2]),
+        ):
+            message_key = (can_id, message_name)
+            message_item = message_nodes.get(message_key)
             if message_item is None:
-                message_item = QTreeWidgetItem(self.signal_tree, [message_name])
-                message_nodes[message_name] = message_item
+                message_item = QTreeWidgetItem(
+                    self.signal_tree,
+                    [self._format_can_message_label(can_id, message_name)],
+                )
+                message_nodes[message_key] = message_item
             signal_item = QTreeWidgetItem(message_item, [signal_name])
-            signal_item.setData(0, Qt.UserRole, (message_name, signal_name))
+            signal_item.setData(0, Qt.UserRole, (can_id, message_name, signal_name))
             signal_item.setFlags(signal_item.flags() | Qt.ItemIsUserCheckable)
             signal_item.setCheckState(0, Qt.Unchecked)
         self.signal_tree.expandAll()
@@ -445,8 +452,8 @@ class MainWindow(QMainWindow):
         axis_groups = self.plot_builder.build(self.dataset, selected, self.filtered_indices)
         self.plot_widget.set_series(axis_groups)
 
-    def _selected_signals(self) -> set[tuple[str, str]]:
-        selected: set[tuple[str, str]] = set()
+    def _selected_signals(self) -> set[tuple[int, str, str]]:
+        selected: set[tuple[int, str, str]] = set()
         root = self.signal_tree.invisibleRootItem()
         for index in range(root.childCount()):
             message_item = root.child(index)

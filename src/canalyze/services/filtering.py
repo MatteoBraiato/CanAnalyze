@@ -36,10 +36,10 @@ class FilterEngine:
         self,
         dataset: FrameDataset,
         matched_indices: list[int],
-    ) -> set[tuple[str, str]]:
+    ) -> set[tuple[int, str, str]]:
         matched = set(matched_indices)
         return {
-            (sample.message_name, sample.name)
+            (sample.can_id, sample.message_name, sample.name)
             for sample in dataset.signal_samples
             if sample.frame_index in matched
         }

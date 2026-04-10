@@ -145,7 +145,7 @@ class MultiAxisPlotWidget(QWidget):
                 series.x_values,
                 series.y_values,
                 pen=pg.mkPen(series_color, width=2),
-                name=f"{series.message_name}.{series.signal_name}",
+                name=f"0x{series.can_id:X} | {series.message_name}.{series.signal_name}",
                 downsampleMethod="peak",
                 autoDownsample=True,
             )
@@ -176,7 +176,7 @@ class MultiAxisPlotWidget(QWidget):
             view_box.setGeometry(base_view.sceneBoundingRect())
 
             for series in axis_group.series:
-                label = f"{series.message_name}.{series.signal_name}"
+                label = f"0x{series.can_id:X} | {series.message_name}.{series.signal_name}"
                 series_color = self._ensure_series_color(series.key)
                 curve = pg.PlotCurveItem(
                     x=series.x_values,
@@ -497,7 +497,7 @@ class MultiAxisPlotWidget(QWidget):
         self._hover_label.setText(
             "\n".join(
                 [
-                    f"{series.message_name}.{series.signal_name}",
+                    f"0x{series.can_id:X} | {series.message_name}.{series.signal_name}",
                     f"t: {series.x_values[sample_index]:.6f} s",
                     f"y: {series.y_values[sample_index]:g}{unit_suffix}",
                 ]
