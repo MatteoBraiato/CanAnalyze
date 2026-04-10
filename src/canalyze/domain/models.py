@@ -46,10 +46,17 @@ class DecodedMessage:
 
 @dataclass(slots=True)
 class FilterCriteria:
+    can_message_pairs: set["CanMessageIdentity"] | None = None
     can_ids: set[int] | None = None
     time_start: float | None = None
     time_end: float | None = None
     message_names: set[str] | None = None
+
+
+@dataclass(slots=True, frozen=True)
+class CanMessageIdentity:
+    can_id: int
+    message_name: str | None = None
 
 
 @dataclass(slots=True)

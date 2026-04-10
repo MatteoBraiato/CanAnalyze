@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from canalyze.domain.dataset import FrameDataset
-from canalyze.domain.models import FilterCriteria
+from canalyze.domain.models import CanMessageIdentity, FilterCriteria
 
 
 class FilterEngine:
@@ -11,6 +11,14 @@ class FilterEngine:
             decoded.frame_index: decoded for decoded in dataset.decoded_messages
         }
         for index, frame in enumerate(dataset.frames):
+            if criteria.can_message_pairs:
+                decoded = decoded_by_index.get(index)
+                identity = CanMessageIdentity(
+                    can_id=frame.can_id,
+                    message_name=decoded.message_name if decoded and decoded.message_name else None,
+                )
+                if identity not in criteria.can_message_pairs:
+                    continue
             if criteria.can_ids and frame.can_id not in criteria.can_ids:
                 continue
             if criteria.time_start is not None and frame.timestamp < criteria.time_start:

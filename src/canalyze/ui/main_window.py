@@ -4,7 +4,7 @@ from pathlib import Path
 
 from canalyze.compat import HAS_PYSIDE6
 from canalyze.domain.dataset import FrameDataset
-from canalyze.domain.models import FilterCriteria
+from canalyze.domain.models import CanMessageIdentity, FilterCriteria
 from canalyze.services.decoder import DecoderService
 from canalyze.services.filtering import FilterEngine
 from canalyze.services.loader import DatasetLoader
@@ -146,6 +146,7 @@ class MainWindow(QMainWindow):
         self._workers: list[FunctionWorker] = []
         self._pending_dbc_path: str | None = None
         self._theme_mode = "dark"
+        self._filter_message_options: dict[str, CanMessageIdentity] = {}
 
         self.setWindowTitle(f"{APP_NAME} v{__version__}")
         self.resize(1440, 900)
@@ -173,18 +174,14 @@ class MainWindow(QMainWindow):
         top_splitter.addWidget(self.plot_widget)
         top_splitter.setStretchFactor(1, 1)
 
-        self.filter_can_ids = SearchableMultiSelectFilter(
-            "Type or pick CAN IDs",
-            normalizer=self._normalize_can_id_filter_value,
+        self.filter_messages = SearchableMultiSelectFilter(
+            "Type CAN ID or message name",
+            normalizer=lambda text: text.strip() or None,
+            resolver=self._resolve_filter_message_value,
             parent=self,
         )
         self.filter_time_start = QLineEdit(self)
         self.filter_time_end = QLineEdit(self)
-        self.filter_message_names = SearchableMultiSelectFilter(
-            "Type or pick message names",
-            normalizer=self._normalize_message_name_filter_value,
-            parent=self,
-        )
         apply_filter_button = QPushButton("Apply Filters", self)
         apply_filter_button.clicked.connect(self.apply_filters)
         clear_filter_button = QPushButton("Clear", self)
@@ -194,10 +191,8 @@ class MainWindow(QMainWindow):
         filter_grid.setContentsMargins(0, 0, 0, 0)
         filter_grid.setHorizontalSpacing(12)
         filter_grid.setVerticalSpacing(8)
-        filter_grid.addWidget(QLabel("CAN IDs", self), 0, 0)
-        filter_grid.addWidget(QLabel("Message names", self), 0, 1)
-        filter_grid.addWidget(self.filter_can_ids, 1, 0)
-        filter_grid.addWidget(self.filter_message_names, 1, 1)
+        filter_grid.addWidget(QLabel("CAN messages", self), 0, 0, 1, 2)
+        filter_grid.addWidget(self.filter_messages, 1, 0, 1, 2)
         filter_grid.addWidget(QLabel("Start time (s)", self), 2, 0)
         filter_grid.addWidget(QLabel("End time (s)", self), 2, 1)
         filter_grid.addWidget(self.filter_time_start, 3, 0)
@@ -373,35 +368,28 @@ class MainWindow(QMainWindow):
         self._set_status(f"{len(self.filtered_indices)} frames match current filters.")
 
     def clear_filters(self) -> None:
-        self.filter_can_ids.clear()
+        self.filter_messages.clear()
         self.filter_time_start.clear()
         self.filter_time_end.clear()
-        self.filter_message_names.clear()
         if self.dataset is not None:
             self.filtered_indices = list(range(len(self.dataset.frames)))
             self._refresh_views()
             self._set_status("Filters cleared.")
 
     def _read_filter_criteria(self) -> FilterCriteria:
-        can_ids = None
-        message_names = None
-
-        raw_can_ids = self.filter_can_ids.selected_values()
-        if raw_can_ids:
-            can_ids = {
-                int(part, 16) if part.lower().startswith("0x") else int(part)
-                for part in raw_can_ids
+        can_message_pairs = None
+        selected_messages = self.filter_messages.selected_values()
+        if selected_messages:
+            can_message_pairs = {
+                self._filter_message_options[selection_key]
+                for selection_key in selected_messages
+                if selection_key in self._filter_message_options
             }
 
-        raw_message_names = self.filter_message_names.selected_values()
-        if raw_message_names:
-            message_names = set(raw_message_names)
-
         return FilterCriteria(
-            can_ids=can_ids,
+            can_message_pairs=can_message_pairs or None,
             time_start=float(self.filter_time_start.text()) if self.filter_time_start.text() else None,
             time_end=float(self.filter_time_end.text()) if self.filter_time_end.text() else None,
-            message_names=message_names,
         )
 
     def _refresh_views(self) -> None:
@@ -617,50 +605,99 @@ class MainWindow(QMainWindow):
 
     def _refresh_filter_options(self) -> None:
         if self.dataset is None:
-            self.filter_can_ids.set_available_options([])
-            self.filter_message_names.set_available_options([])
+            self._filter_message_options = {}
+            self.filter_messages.set_available_options([])
             return
 
-        can_id_options = [
-            FilterOption(
-                value=f"0x{can_id:X}",
-                display=f"0x{can_id:X}",
-                search_terms=(f"0x{can_id:X}".lower(), str(can_id)),
+        identities = self._available_can_message_identities()
+        options: list[FilterOption] = []
+        self._filter_message_options = {}
+        for identity in sorted(identities, key=lambda item: (item.can_id, item.message_name or "")):
+            option_key = self._filter_message_key(identity)
+            display = self._format_can_message_label(identity.can_id, identity.message_name)
+            search_terms = [display.lower(), f"0x{identity.can_id:X}".lower(), str(identity.can_id)]
+            if identity.message_name:
+                search_terms.append(identity.message_name.lower())
+            options.append(
+                FilterOption(
+                    value=option_key,
+                    display=display,
+                    search_terms=tuple(search_terms),
+                )
             )
-            for can_id in sorted({frame.can_id for frame in self.dataset.frames})
+            self._filter_message_options[option_key] = identity
+        self.filter_messages.set_available_options(options)
+
+    def _available_can_message_identities(self) -> set[CanMessageIdentity]:
+        identities: set[CanMessageIdentity] = set()
+        if self.dataset is None:
+            return identities
+        if self.dataset.decoded_messages:
+            for decoded in self.dataset.decoded_messages:
+                identities.add(
+                    CanMessageIdentity(
+                        can_id=decoded.can_id,
+                        message_name=decoded.message_name or None,
+                    )
+                )
+        else:
+            for frame in self.dataset.frames:
+                identities.add(CanMessageIdentity(can_id=frame.can_id, message_name=None))
+        return identities
+
+    def _resolve_filter_message_value(
+        self,
+        text: str,
+        options: dict[str, FilterOption],
+    ) -> str | None:
+        value = text.strip()
+        if not value:
+            return None
+        lowered = value.lower()
+
+        exact_display_matches = [
+            option.value for option in options.values() if option.display.lower() == lowered
         ]
-        message_name_options = [
-            FilterOption(
-                value=message_name,
-                display=message_name,
-                search_terms=(message_name.lower(),),
-            )
-            for message_name in sorted(
-                {
-                    decoded.message_name
-                    for decoded in self.dataset.decoded_messages
-                    if decoded.message_name
-                }
-            )
+        if len(exact_display_matches) == 1:
+            return exact_display_matches[0]
+
+        parsed_can_id = self._parse_can_id(value)
+        if parsed_can_id is not None:
+            id_matches = [
+                option_key
+                for option_key, identity in self._filter_message_options.items()
+                if identity.can_id == parsed_can_id
+            ]
+            if len(id_matches) == 1:
+                return id_matches[0]
+
+        name_matches = [
+            option_key
+            for option_key, identity in self._filter_message_options.items()
+            if identity.message_name and identity.message_name.lower() == lowered
         ]
-        self.filter_can_ids.set_available_options(can_id_options)
-        self.filter_message_names.set_available_options(message_name_options)
+        if len(name_matches) == 1:
+            return name_matches[0]
+
+        return None
 
     @staticmethod
-    def _normalize_can_id_filter_value(text: str) -> str | None:
+    def _parse_can_id(text: str) -> int | None:
         value = text.strip()
         if not value:
             return None
         try:
-            parsed = int(value, 16) if value.lower().startswith("0x") else int(value)
+            return int(value, 16) if value.lower().startswith("0x") else int(value)
         except ValueError:
             return None
-        return f"0x{parsed:X}"
 
     @staticmethod
-    def _normalize_message_name_filter_value(text: str) -> str | None:
-        value = text.strip()
-        return value or None
+    def _filter_message_key(identity: CanMessageIdentity) -> str:
+        return f"{identity.can_id}:{identity.message_name or ''}"
+
+    @staticmethod
+    def _format_can_message_label(can_id: int, message_name: str | None) -> str:
+        return f"0x{can_id:X} | {message_name}" if message_name else f"0x{can_id:X}"
 
     def _select_message_row_for_frame(self, frame_index: int) -> None:
         if self.dataset is None or frame_index not in self.filtered_indices:

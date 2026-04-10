@@ -34,10 +34,12 @@ class SearchableMultiSelectFilter(QWidget):
         self,
         placeholder: str,
         normalizer: Callable[[str], str | None],
+        resolver: Callable[[str, dict[str, FilterOption]], str | None] | None = None,
         parent=None,
     ) -> None:
         super().__init__(parent)
         self._normalizer = normalizer
+        self._resolver = resolver
         self._options: dict[str, FilterOption] = {}
         self._selected_values: list[str] = []
 
@@ -101,7 +103,11 @@ class SearchableMultiSelectFilter(QWidget):
         raw_text = self._line_edit.text().strip()
         if not raw_text:
             return
-        normalized = self._normalizer(raw_text)
+        normalized = (
+            self._resolver(raw_text, self._options)
+            if self._resolver is not None
+            else self._normalizer(raw_text)
+        )
         if normalized is None:
             return
         self._add_selected_value(normalized)

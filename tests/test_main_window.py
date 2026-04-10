@@ -11,7 +11,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from canalyze.compat import HAS_PYSIDE6
 from canalyze.domain.dataset import FrameDataset
-from canalyze.domain.models import CANFrame
+from canalyze.domain.models import CANFrame, CanMessageIdentity, DecodedMessage
 from canalyze.services.decoder import DecoderService
 from canalyze.services.filtering import FilterEngine
 from canalyze.services.loader import DatasetLoader
@@ -115,7 +115,7 @@ class MainWindowTests(unittest.TestCase):
         self.assertGreaterEqual(window.message_table.columnWidth(3), 230)
         self.assertIn("QTableView::item:selected:active", window.message_table.styleSheet())
 
-    def test_filter_controls_build_searchable_multi_select_criteria(self) -> None:
+    def test_filter_controls_build_combined_can_message_criteria(self) -> None:
         window = MainWindow(
             loader=DatasetLoader(),
             decoder=DecoderService(),
@@ -131,23 +131,23 @@ class MainWindowTests(unittest.TestCase):
             ]
         )
         window.dataset.decoded_messages = [
-            type("Decoded", (), {"message_name": "EngineData"})(),
-            type("Decoded", (), {"message_name": "BrakeData"})(),
+            DecodedMessage(frame_index=0, can_id=0x100, message_name="EngineData"),
+            DecodedMessage(frame_index=1, can_id=0x200, message_name="BrakeData"),
         ]
         window.filtered_indices = [0, 1]
         window._refresh_views()
 
-        window.filter_can_ids._line_edit.setText("256")
-        window.filter_message_names._line_edit.setText("EngineData")
-        window.filter_can_ids._refresh_popup_items("20")
+        window.filter_messages._line_edit.setText("256")
+        window.filter_messages.commit_pending_input()
+        window.filter_messages._refresh_popup_items("br")
 
-        self.assertEqual(window.filter_can_ids._list_widget.count(), 1)
-        self.assertEqual(window.filter_can_ids._list_widget.item(0).text(), "0x200")
+        self.assertEqual(window.filter_messages._list_widget.count(), 1)
+        self.assertEqual(window.filter_messages._list_widget.item(0).text(), "0x200 | BrakeData")
 
         criteria = window._read_filter_criteria()
 
-        self.assertEqual(criteria.can_ids, {0x100})
-        self.assertEqual(criteria.message_names, {"EngineData"})
+        self.assertEqual(len(criteria.can_message_pairs or set()), 1)
+        self.assertEqual(criteria.can_message_pairs, {CanMessageIdentity(0x100, "EngineData")})
 
 
 if __name__ == "__main__":

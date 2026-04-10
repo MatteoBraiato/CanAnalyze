@@ -7,7 +7,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from canalyze.domain.dataset import FrameDataset
-from canalyze.domain.models import CANFrame, DecodedMessage, DecodedSignal, FilterCriteria, SignalSample
+from canalyze.domain.models import (
+    CANFrame,
+    CanMessageIdentity,
+    DecodedMessage,
+    DecodedSignal,
+    FilterCriteria,
+    SignalSample,
+)
 from canalyze.services.filtering import FilterEngine
 
 
@@ -48,6 +55,32 @@ class FilterEngineTests(unittest.TestCase):
         self.assertEqual(indices, [0, 2])
         signal_keys = self.engine.filtered_signal_keys(self.dataset, indices)
         self.assertEqual(signal_keys, {("EngineData", "Speed")})
+
+    def test_filter_by_combined_can_message_pair_is_pair_exact(self) -> None:
+        dataset = FrameDataset.from_frames(
+            [
+                CANFrame(timestamp=0.0, can_id=0x100, dlc=1, data=b"\x01"),
+                CANFrame(timestamp=0.5, can_id=0x100, dlc=1, data=b"\x02"),
+                CANFrame(timestamp=1.0, can_id=0x200, dlc=1, data=b"\x03"),
+            ]
+        )
+        dataset.attach_decode_results(
+            [
+                DecodedMessage(0, 0x100, "EngineData", [], "decoded"),
+                DecodedMessage(1, 0x100, "BrakeData", [], "decoded"),
+                DecodedMessage(2, 0x200, "BrakeData", [], "decoded"),
+            ],
+            [],
+        )
+
+        indices = self.engine.apply(
+            dataset,
+            FilterCriteria(
+                can_message_pairs={CanMessageIdentity(0x100, "BrakeData")},
+            ),
+        )
+
+        self.assertEqual(indices, [1])
 
 
 if __name__ == "__main__":
