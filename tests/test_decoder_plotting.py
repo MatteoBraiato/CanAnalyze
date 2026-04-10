@@ -16,7 +16,7 @@ from canalyze.domain.models import CANFrame, PlotAxisGroup, PlotSeries
 from canalyze.services.dbc import DbcLoader
 from canalyze.services.decoder import DecoderService
 from canalyze.services.plotting import PlotModelBuilder
-from canalyze.ui.plot_widget import MultiAxisPlotWidget
+from canalyze.ui.plot_widget import CLEAR_PLOT_COLORS, MultiAxisPlotWidget
 from canalyze.ui.view_helpers import materialize_filtered_rows
 
 if HAS_PYSIDE6:
@@ -204,6 +204,68 @@ BO_ 517 TestMessage: 8 ECU
         plot_item = widget._plot_widget.getPlotItem()
         self.assertEqual(len(plot_item.listDataItems()), 1)
         self.assertEqual(len(plot_item.legend.items), 1)
+
+    def test_plot_widget_keeps_existing_signal_color_when_adding_series(self) -> None:
+        if not (HAS_PYSIDE6 and HAS_PYQTGRAPH):
+            self.skipTest("Qt plotting dependencies are not installed")
+
+        widget = MultiAxisPlotWidget()
+        self.addCleanup(widget.deleteLater)
+
+        first_series = PlotSeries(
+            key="Message.SignalA",
+            message_name="Message",
+            signal_name="SignalA",
+            unit="%",
+            x_values=[0.0, 1.0],
+            y_values=[1.0, 2.0],
+            frame_indices=[1, 2],
+        )
+        second_series = PlotSeries(
+            key="Message.SignalB",
+            message_name="Message",
+            signal_name="SignalB",
+            unit="%",
+            x_values=[0.0, 1.0],
+            y_values=[4.0, 5.0],
+            frame_indices=[3, 4],
+        )
+
+        widget.set_series([PlotAxisGroup(unit="%", series=[first_series])])
+        first_color = widget._series_colors["Message.SignalA"]
+
+        widget.set_series([PlotAxisGroup(unit="%", series=[first_series, second_series])])
+
+        self.assertEqual(widget._series_colors["Message.SignalA"], first_color)
+        self.assertIn(widget._series_colors["Message.SignalB"], CLEAR_PLOT_COLORS)
+        self.assertNotEqual(widget._series_colors["Message.SignalA"], widget._series_colors["Message.SignalB"])
+
+    def test_plot_widget_manual_color_change_persists_across_redraws(self) -> None:
+        if not (HAS_PYSIDE6 and HAS_PYQTGRAPH):
+            self.skipTest("Qt plotting dependencies are not installed")
+
+        widget = MultiAxisPlotWidget()
+        self.addCleanup(widget.deleteLater)
+
+        series = PlotSeries(
+            key="Message.Signal",
+            message_name="Message",
+            signal_name="Signal",
+            unit="%",
+            x_values=[0.0, 1.0],
+            y_values=[1.0, 2.0],
+            frame_indices=[10, 11],
+        )
+        widget.set_series([PlotAxisGroup(unit="%", series=[series])])
+
+        widget._set_series_color(series.key, "#16A085")
+        widget.set_series([PlotAxisGroup(unit="%", series=[series])])
+
+        self.assertEqual(widget._series_colors[series.key], "#16A085")
+        self.assertEqual(
+            widget._curve_records[0].curve.opts["pen"].color().name().upper(),
+            "#16A085",
+        )
 
     def test_plot_widget_renders_secondary_axis_groups(self) -> None:
         if not (HAS_PYSIDE6 and HAS_PYQTGRAPH):

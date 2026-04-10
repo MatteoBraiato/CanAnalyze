@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from bisect import bisect_left
 from dataclasses import dataclass
-from itertools import cycle
 import math
 
 from canalyze.compat import HAS_PYQTGRAPH, HAS_PYSIDE6
 from canalyze.domain.models import PlotAxisGroup, PlotSeries
 
 if HAS_PYSIDE6:
-    from PySide6.QtCore import QPointF, Qt, Signal
-    from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+    from PySide6.QtCore import QPoint, QPointF, Qt, Signal
+    from PySide6.QtGui import QColor, QIcon, QPainter, QPixmap
+    from PySide6.QtWidgets import QLabel, QMenu, QVBoxLayout, QWidget
 else:
     QWidget = object
     Signal = lambda *_args, **_kwargs: None
@@ -19,6 +19,22 @@ if HAS_PYQTGRAPH and HAS_PYSIDE6:
     import pyqtgraph as pg
 else:
     pg = None
+
+
+CLEAR_PLOT_COLORS = [
+    "#2E86DE",
+    "#E74C3C",
+    "#27AE60",
+    "#F39C12",
+    "#8E44AD",
+    "#16A085",
+    "#C0392B",
+    "#2980B9",
+    "#D35400",
+    "#7F8C8D",
+    "#1ABC9C",
+    "#B9770E",
+]
 
 
 @dataclass(slots=True)
@@ -46,6 +62,9 @@ class MultiAxisPlotWidget(QWidget):
         self._unit_views = []
         self._curve_records: list[_CurveRecord] = []
         self._hovered_sample: _HoveredSample | None = None
+        self._legend_targets: dict[object, str] = {}
+        self._series_colors: dict[str, str] = {}
+        self._palette_index = 0
         self._view_sync_connected = False
         self._background_color = "w"
         self._grid_alpha = 0.25
@@ -109,7 +128,6 @@ class MultiAxisPlotWidget(QWidget):
         self._curve_records.clear()
         self._clear_hover_state()
         self._apply_theme_to_plot()
-        colors = cycle(["#1f77b4", "#d62728", "#2ca02c", "#ff7f0e", "#9467bd", "#8c564b"])
         plot_item.setLabel("bottom", "Time", units="s")
 
         if not axis_groups:
@@ -122,15 +140,17 @@ class MultiAxisPlotWidget(QWidget):
         primary_group = axis_groups[0]
         plot_item.setLabel("left", primary_group.unit or "Value")
         for series in primary_group.series:
+            series_color = self._ensure_series_color(series.key)
             curve = plot_item.plot(
                 series.x_values,
                 series.y_values,
-                pen=pg.mkPen(next(colors), width=2),
+                pen=pg.mkPen(series_color, width=2),
                 name=f"{series.message_name}.{series.signal_name}",
                 downsampleMethod="peak",
                 autoDownsample=True,
             )
             self._curve_records.append(_CurveRecord(curve=curve, view_box=base_view, series=series))
+            self._register_legend_item(plot_item, series.key)
 
         if len(axis_groups) == 1:
             base_view.enableAutoRange(axis=pg.ViewBox.XYAxes, enable=True)
@@ -157,10 +177,11 @@ class MultiAxisPlotWidget(QWidget):
 
             for series in axis_group.series:
                 label = f"{series.message_name}.{series.signal_name}"
+                series_color = self._ensure_series_color(series.key)
                 curve = pg.PlotCurveItem(
                     x=series.x_values,
                     y=series.y_values,
-                    pen=pg.mkPen(next(colors), width=2),
+                    pen=pg.mkPen(series_color, width=2),
                     autoDownsample=True,
                     downsampleMethod="peak",
                 )
@@ -168,6 +189,7 @@ class MultiAxisPlotWidget(QWidget):
                 self._curve_records.append(_CurveRecord(curve=curve, view_box=view_box, series=series))
                 if plot_item.legend is not None:
                     plot_item.legend.addItem(curve, label)
+                    self._register_legend_item(plot_item, series.key)
 
             self._unit_views.append((view_box, axis, built_in_axis))
 
@@ -180,6 +202,7 @@ class MultiAxisPlotWidget(QWidget):
         base_view.autoRange()
 
     def _clear_legend(self, plot_item) -> None:
+        self._legend_targets.clear()
         if plot_item.legend is None:
             return
         entries = [label.text for _sample, label in plot_item.legend.items]
@@ -256,10 +279,111 @@ class MultiAxisPlotWidget(QWidget):
         self._show_hover_label(hovered_sample)
 
     def _on_scene_mouse_clicked(self, event) -> None:
+        if self._handle_legend_click(event):
+            return
         if event.button() != Qt.MouseButton.LeftButton or self._hovered_sample is None:
             return
         frame_index = self._hovered_sample.record.series.frame_indices[self._hovered_sample.sample_index]
         self.sampleActivated.emit(frame_index)
+
+    def _handle_legend_click(self, event) -> bool:
+        if self._plot_widget is None or event.button() != Qt.MouseButton.LeftButton:
+            return False
+        scene_position = event.scenePos() if hasattr(event, "scenePos") else None
+        if scene_position is None:
+            return False
+
+        series_key = self._legend_target_for_scene_pos(scene_position)
+        if series_key is None:
+            return False
+
+        self._show_color_menu(series_key, event)
+        return True
+
+    def _legend_target_for_scene_pos(self, scene_position: QPointF) -> str | None:
+        if self._plot_widget is None:
+            return None
+        for item in self._plot_widget.scene().items(scene_position):
+            current = item
+            while current is not None:
+                if current in self._legend_targets:
+                    return self._legend_targets[current]
+                current = current.parentItem() if hasattr(current, "parentItem") else None
+        return None
+
+    def _show_color_menu(self, series_key: str, event) -> None:
+        menu = QMenu(self)
+        current_color = self._series_colors.get(series_key)
+        for color in CLEAR_PLOT_COLORS:
+            label = f"{color} {'(Current)' if color == current_color else ''}".strip()
+            action = menu.addAction(self._color_icon(color), label)
+            action.triggered.connect(
+                lambda _checked=False, key=series_key, selected_color=color: self._set_series_color(
+                    key, selected_color
+                )
+            )
+
+        if hasattr(event, "screenPos"):
+            screen_position = event.screenPos()
+            if isinstance(screen_position, QPointF):
+                menu.exec(QPoint(int(screen_position.x()), int(screen_position.y())))
+                return
+            if isinstance(screen_position, QPoint):
+                menu.exec(screen_position)
+                return
+
+        if hasattr(event, "scenePos") and self._plot_widget is not None:
+            widget_pos = self._plot_widget.mapFromScene(event.scenePos())
+            menu.exec(self._plot_widget.mapToGlobal(widget_pos))
+
+    def _register_legend_item(self, plot_item, series_key: str) -> None:
+        if plot_item.legend is None or not plot_item.legend.items:
+            return
+        sample, label = plot_item.legend.items[-1]
+        self._legend_targets[sample] = series_key
+        self._legend_targets[label] = series_key
+
+    def _ensure_series_color(self, series_key: str) -> str:
+        existing_color = self._series_colors.get(series_key)
+        if existing_color is not None:
+            return existing_color
+
+        assigned_colors = set(self._series_colors.values())
+        for _index in range(len(CLEAR_PLOT_COLORS)):
+            palette_color = CLEAR_PLOT_COLORS[self._palette_index % len(CLEAR_PLOT_COLORS)]
+            self._palette_index += 1
+            if palette_color not in assigned_colors:
+                self._series_colors[series_key] = palette_color
+                return palette_color
+
+        palette_color = CLEAR_PLOT_COLORS[self._palette_index % len(CLEAR_PLOT_COLORS)]
+        self._palette_index += 1
+        self._series_colors[series_key] = palette_color
+        return palette_color
+
+    def _set_series_color(self, series_key: str, color: str) -> None:
+        self._series_colors[series_key] = color
+        if pg is None:
+            return
+
+        for record in self._curve_records:
+            if record.series.key != series_key:
+                continue
+            record.curve.setPen(pg.mkPen(color, width=2))
+            if hasattr(record.curve, "update"):
+                record.curve.update()
+
+    @staticmethod
+    def _color_icon(color: str) -> QIcon:
+        pixmap = QPixmap(18, 18)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setPen(QColor("#d0d6df"))
+        painter.setBrush(QColor(color))
+        painter.drawRoundedRect(1, 1, 16, 16, 4, 4)
+        painter.end()
+        return QIcon(pixmap)
 
     def _find_closest_sample(self, scene_position: QPointF) -> _HoveredSample | None:
         if self._plot_widget is None or not self._curve_records:
