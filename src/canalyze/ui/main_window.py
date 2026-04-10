@@ -19,7 +19,7 @@ from canalyze.version import APP_NAME, __version__
 
 if HAS_PYSIDE6:
     from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QItemSelectionModel
-    from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
+    from PySide6.QtGui import QColor, QIcon, QPainter, QPalette, QPen, QPixmap
     from PySide6.QtWidgets import (
         QFileDialog,
         QGridLayout,
@@ -40,6 +40,7 @@ if HAS_PYSIDE6:
         QTreeWidgetItem,
         QStyledItemDelegate,
         QStyle,
+        QStyleOptionViewItem,
         QVBoxLayout,
         QWidget,
         QSizePolicy,
@@ -119,7 +120,24 @@ MESSAGE_TABLE_MIN_WIDTHS = {
 
 if HAS_PYSIDE6:
     class _MessageTableDelegate(QStyledItemDelegate):
+        def __init__(self, parent=None) -> None:
+            super().__init__(parent)
+            self._selection_background = QColor("#31445d")
+            self._selection_text = QColor("#eef2f7")
+
+        def set_selection_colors(self, background: str, text: str) -> None:
+            self._selection_background = QColor(background)
+            self._selection_text = QColor(text)
+
         def paint(self, painter, option, index) -> None:
+            option = QStyleOptionViewItem(option)
+            if option.state & QStyle.StateFlag.State_Selected:
+                painter.save()
+                painter.fillRect(option.rect, self._selection_background)
+                painter.restore()
+                option.palette.setColor(QPalette.ColorRole.Text, self._selection_text)
+                option.palette.setColor(QPalette.ColorRole.WindowText, self._selection_text)
+                option.state &= ~QStyle.StateFlag.State_Selected
             option.state &= ~QStyle.StateFlag.State_HasFocus
             super().paint(painter, option, index)
 
@@ -217,7 +235,8 @@ class MainWindow(QMainWindow):
         self.message_table.setSelectionMode(QTableView.SingleSelection)
         self.message_table.selectionModel().selectionChanged.connect(self._update_raw_inspector)
         self.message_table.setSortingEnabled(True)
-        self.message_table.setItemDelegate(_MessageTableDelegate(self.message_table))
+        self._message_table_delegate = _MessageTableDelegate(self.message_table)
+        self.message_table.setItemDelegate(self._message_table_delegate)
         self.message_table.setAlternatingRowColors(True)
         self.message_table.setShowGrid(False)
         self.message_table.verticalHeader().setVisible(False)
@@ -588,6 +607,7 @@ class MainWindow(QMainWindow):
                 "selection": "#d9e8ff",
                 "text": "#1c1f24",
             }
+        self._message_table_delegate.set_selection_colors(colors["selection"], colors["text"])
         self.message_table.setStyleSheet(
             f"""
             QTableView {{
@@ -598,17 +618,13 @@ class MainWindow(QMainWindow):
             QTableView::item {{
                 padding: 4px 8px;
             }}
-            QTableView::item:selected:active,
-            QTableView::item:selected:inactive {{
-                background-color: {colors["selection"]};
-                color: {colors["text"]};
-            }}
             QTableView::item:focus {{
                 outline: none;
                 border: none;
             }}
             """
         )
+        self.message_table.viewport().update()
 
     def _refresh_filter_options(self) -> None:
         if self.dataset is None:
@@ -724,8 +740,10 @@ class MainWindow(QMainWindow):
             | QItemSelectionModel.SelectionFlag.Rows
         )
         selection_model.select(model_index, selection_flags)
+        self.message_table.selectRow(visible_row)
         self.message_table.setCurrentIndex(model_index)
         self.message_table.scrollTo(model_index, QTableView.ScrollHint.PositionAtCenter)
+        self.message_table.viewport().update()
         self._update_raw_inspector()
 
     def _show_warnings(self) -> None:

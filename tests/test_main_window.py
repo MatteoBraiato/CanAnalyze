@@ -114,7 +114,8 @@ class MainWindowTests(unittest.TestCase):
         self.assertFalse(window.message_table.showGrid())
         self.assertGreaterEqual(window.message_table.columnWidth(0), 130)
         self.assertGreaterEqual(window.message_table.columnWidth(3), 230)
-        self.assertIn("QTableView::item:selected:active", window.message_table.styleSheet())
+        self.assertNotIn("QTableView::item:selected:active", window.message_table.styleSheet())
+        self.assertEqual(window._message_table_delegate._selection_background.name().upper(), "#31445D")
 
     def test_filter_controls_build_combined_can_message_criteria(self) -> None:
         window = MainWindow(
