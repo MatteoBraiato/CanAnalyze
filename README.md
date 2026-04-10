@@ -99,9 +99,11 @@ Packaging notes:
 - installer output is written to `release/`
 - the installer filename includes the app version
 - the installed app shows the same version in its window title
+- `icon/icon.png` is the source-of-truth icon asset; the Windows build regenerates `icon/icon.ico` from it before bundling
 - the Windows bundle embeds `icon/icon.ico`, and the running app loads `icon/icon.png` as the Qt window icon
 - the installed Windows app is built as a GUI executable, so it should not open a command prompt window
 - the bundle script auto-detects Visual Studio Build Tools and bootstraps the developer shell when needed
+- the bundle script runs a packaged smoke test before reporting success, so missing release dependencies fail the build instead of slipping into the installer
 - the bundle script validates that `dist\CanAnalyze.dist\CanAnalyze.exe` exists before reporting success
 
 Prerequisites for packaging on Windows:

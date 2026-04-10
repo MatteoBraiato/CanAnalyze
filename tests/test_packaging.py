@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import configparser
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -22,10 +23,11 @@ class PackagingConfigTests(unittest.TestCase):
         self.assertEqual(config.get("nuitka", "mode"), "standalone")
         self.assertEqual(
             config.get("nuitka", "extra_args"),
-            "--output-filename=CanAnalyze.exe --windows-console-mode=disable --include-package=pyqtgraph",
+            "--output-filename=CanAnalyze.exe --windows-console-mode=disable --include-package=pyqtgraph --include-package=cantools --include-package=pandas --include-package=numpy --include-package=can",
         )
         self.assertTrue((self.repo_root / "icon" / "icon.png").is_file())
         self.assertTrue((self.repo_root / "icon" / "icon.ico").is_file())
+        self.assertTrue((self.repo_root / "scripts" / "generate_windows_icon.py").is_file())
 
     def test_bundle_script_bootstraps_visual_studio_and_validates_output(self) -> None:
         script_text = (self.repo_root / "scripts" / "build_windows_bundle.ps1").read_text(
@@ -37,11 +39,17 @@ class PackagingConfigTests(unittest.TestCase):
         self.assertIn("vswhere.exe", script_text)
         self.assertIn("VsDevCmd.bat", script_text)
         self.assertIn("Initializing Visual Studio developer environment", script_text)
+        self.assertIn('$iconSourcePath = Join-Path $repoRoot "icon\\icon.png"', script_text)
+        self.assertIn('$iconTargetPath = Join-Path $repoRoot "icon\\icon.ico"', script_text)
+        self.assertIn('$iconGeneratorPath = Join-Path $PSScriptRoot "generate_windows_icon.py"', script_text)
+        self.assertIn("& $pythonExe $iconGeneratorPath --source $iconSourcePath --output $iconTargetPath", script_text)
         self.assertIn('$generatedSpecPath = Join-Path $buildRoot "pysidedeploy.generated.spec"', script_text)
         self.assertIn("Copy-Item -Path $specPath -Destination $generatedSpecPath -Force", script_text)
         self.assertIn("& $deployExe --force --config-file $generatedSpecPath", script_text)
         self.assertIn('$bundleRoot = Join-Path $distRoot "CanAnalyze.dist"', script_text)
         self.assertIn('$bundleExe = Join-Path $bundleRoot "CanAnalyze.exe"', script_text)
+        self.assertIn('$env:CANALYZE_SMOKE_TEST = "1"', script_text)
+        self.assertIn("Packaged smoke test failed with exit code", script_text)
         self.assertIn("if ($LASTEXITCODE -ne 0)", script_text)
         self.assertIn("Expected packaged executable was not found", script_text)
         self.assertIn("Windows bundle build failed after initializing the Visual Studio developer environment", script_text)
@@ -54,6 +62,13 @@ class PackagingConfigTests(unittest.TestCase):
         self.assertIn('$distPath = Join-Path $repoRoot "dist\\CanAnalyze.dist"', script_text)
         self.assertIn('$bundleExe = Join-Path $distPath "CanAnalyze.exe"', script_text)
         self.assertIn("Expected packaged executable not found", script_text)
+
+    def test_packaging_dependencies_include_icon_generator_requirement(self) -> None:
+        with (self.repo_root / "pyproject.toml").open("rb") as handle:
+            pyproject = tomllib.load(handle)
+
+        packaging_deps = pyproject["project"]["optional-dependencies"]["packaging"]
+        self.assertIn("Pillow>=10.0", packaging_deps)
 
 
 if __name__ == "__main__":

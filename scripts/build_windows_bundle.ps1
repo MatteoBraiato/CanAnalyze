@@ -11,6 +11,9 @@ $deployExe = Join-Path $venvPath "Scripts\pyside6-deploy.exe"
 $specPath = Join-Path $repoRoot "pysidedeploy.spec"
 $buildRoot = Join-Path $repoRoot "build"
 $generatedSpecPath = Join-Path $buildRoot "pysidedeploy.generated.spec"
+$iconSourcePath = Join-Path $repoRoot "icon\icon.png"
+$iconTargetPath = Join-Path $repoRoot "icon\icon.ico"
+$iconGeneratorPath = Join-Path $PSScriptRoot "generate_windows_icon.py"
 $distRoot = Join-Path $repoRoot "dist"
 $bundleRoot = Join-Path $distRoot "CanAnalyze.dist"
 $bundleExe = Join-Path $bundleRoot "CanAnalyze.exe"
@@ -96,6 +99,19 @@ if (-not (Test-Path $pythonExe)) {
 
 & $pythonExe -m pip install -e "${repoRoot}[packaging]"
 
+if (-not (Test-Path $iconGeneratorPath)) {
+    throw "Windows icon generator script was not found at '$iconGeneratorPath'."
+}
+
+if (-not (Test-Path $iconSourcePath)) {
+    throw "PNG icon source was not found at '$iconSourcePath'."
+}
+
+& $pythonExe $iconGeneratorPath --source $iconSourcePath --output $iconTargetPath
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to generate Windows icon from '$iconSourcePath'."
+}
+
 if (-not (Test-Path $deployExe)) {
     throw "pyside6-deploy was not found in '.venv-win'. Ensure PySide6 is installed correctly."
 }
@@ -124,6 +140,20 @@ finally {
 
 if (-not (Test-Path $bundleExe)) {
     throw "Expected packaged executable was not found at '$bundleExe'."
+}
+
+$smokeTestExitCode = -1
+$env:CANALYZE_SMOKE_TEST = "1"
+try {
+    & $bundleExe
+    $smokeTestExitCode = $LASTEXITCODE
+}
+finally {
+    Remove-Item Env:CANALYZE_SMOKE_TEST -ErrorAction SilentlyContinue
+}
+
+if ($smokeTestExitCode -ne 0) {
+    throw "Packaged smoke test failed with exit code $smokeTestExitCode."
 }
 
 Write-Host ""

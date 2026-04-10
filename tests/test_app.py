@@ -10,9 +10,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from canalyze.app import (
     APP_USER_MODEL_ID,
+    SMOKE_TEST_ENV_VAR,
+    _is_smoke_test_mode,
     _resolve_app_icon_path,
     _set_windows_app_user_model_id,
     _show_startup_failure,
+    _run_application,
     main,
 )
 
@@ -63,6 +66,38 @@ class AppStartupTests(unittest.TestCase):
         output = stderr.getvalue()
         self.assertIn("boom", output)
         self.assertIn("startup-error.log", output)
+
+    def test_is_smoke_test_mode_reads_environment(self) -> None:
+        with patch.dict("os.environ", {SMOKE_TEST_ENV_VAR: "1"}, clear=False):
+            self.assertTrue(_is_smoke_test_mode())
+
+    def test_run_application_exits_cleanly_in_smoke_test_mode(self) -> None:
+        class FakeApp:
+            def setApplicationName(self, _name):
+                pass
+
+            def setApplicationVersion(self, _version):
+                pass
+
+            def setWindowIcon(self, _icon):
+                pass
+
+        class FakeIcon:
+            def __init__(self, _path: str) -> None:
+                self._is_null = False
+
+            def isNull(self) -> bool:
+                return self._is_null
+
+        with (
+            patch.dict("os.environ", {SMOKE_TEST_ENV_VAR: "1"}, clear=False),
+            patch("canalyze.app._import_qt_widgets", return_value=(lambda *_args: FakeApp(), object(), object())),
+            patch("canalyze.app._import_qt_icon", return_value=FakeIcon),
+            patch("canalyze.app._import_application_components", return_value=(object(), object(), object(), object(), object(), object())),
+            patch("canalyze.app._set_windows_app_user_model_id"),
+            patch("canalyze.app._resolve_app_icon_path", return_value=Path("icon/icon.png")),
+        ):
+            self.assertEqual(_run_application(), 0)
 
 
 if __name__ == "__main__":
