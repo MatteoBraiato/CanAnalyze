@@ -30,10 +30,12 @@ class PlotModelBuilder:
                     unit=sample.unit or "",
                     x_values=[],
                     y_values=[],
+                    frame_indices=[],
                 )
             series = grouped_series[unit][series_key]
             series.x_values.append(sample.timestamp)
             series.y_values.append(sample.value)
+            series.frame_indices.append(sample.frame_index)
 
         axis_groups = [
             PlotAxisGroup(unit=unit, series=sorted(series.values(), key=lambda item: item.key))

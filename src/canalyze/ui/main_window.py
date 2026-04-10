@@ -17,7 +17,7 @@ from canalyze.ui.workers import FunctionWorker
 from canalyze.version import APP_NAME, __version__
 
 if HAS_PYSIDE6:
-    from PySide6.QtCore import QPointF, QRectF, QSize, Qt
+    from PySide6.QtCore import QPointF, QRectF, QSize, Qt, QItemSelectionModel
     from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
     from PySide6.QtWidgets import (
         QFileDialog,
@@ -184,8 +184,9 @@ class MainWindow(QMainWindow):
         self.message_table.setModel(self.table_model)
         self.message_table.setSelectionBehavior(QTableView.SelectRows)
         self.message_table.setSelectionMode(QTableView.SingleSelection)
-        self.message_table.clicked.connect(self._update_raw_inspector)
+        self.message_table.selectionModel().selectionChanged.connect(self._update_raw_inspector)
         self.message_table.setSortingEnabled(True)
+        self.plot_widget.sampleActivated.connect(self._select_message_row_for_frame)
 
         self.raw_inspector = QPlainTextEdit(self)
         self.raw_inspector.setReadOnly(True)
@@ -523,6 +524,28 @@ class MainWindow(QMainWindow):
             *byte_lines,
         ]
         self.raw_inspector.setPlainText("\n".join(summary))
+
+    def _select_message_row_for_frame(self, frame_index: int) -> None:
+        if self.dataset is None or frame_index not in self.filtered_indices:
+            return
+
+        visible_row = self.filtered_indices.index(frame_index)
+        model_index = self.table_model.index(visible_row, 0)
+        if not model_index.isValid():
+            return
+
+        selection_model = self.message_table.selectionModel()
+        if selection_model is None:
+            return
+
+        selection_flags = (
+            QItemSelectionModel.SelectionFlag.ClearAndSelect
+            | QItemSelectionModel.SelectionFlag.Rows
+        )
+        selection_model.select(model_index, selection_flags)
+        self.message_table.setCurrentIndex(model_index)
+        self.message_table.scrollTo(model_index, QTableView.ScrollHint.PositionAtCenter)
+        self._update_raw_inspector()
 
     def _show_warnings(self) -> None:
         if self.dataset is None or not self.dataset.warnings:

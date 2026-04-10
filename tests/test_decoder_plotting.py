@@ -20,6 +20,7 @@ from canalyze.ui.plot_widget import MultiAxisPlotWidget
 from canalyze.ui.view_helpers import materialize_filtered_rows
 
 if HAS_PYSIDE6:
+    from PySide6.QtCore import QPointF, Qt
     from PySide6.QtWidgets import QApplication
 else:
     QApplication = None
@@ -89,6 +90,7 @@ class DecoderPlottingTests(unittest.TestCase):
         self.assertEqual(units, ["C", "km/h"])
         speed_group = next(group for group in groups if group.unit == "km/h")
         self.assertEqual(len(speed_group.series[0].x_values), 2)
+        self.assertEqual(speed_group.series[0].frame_indices, [0, 1])
 
     def test_dbc_loader_resolves_two_signal_conflict(self) -> None:
         overlapping = """
@@ -168,6 +170,7 @@ BO_ 517 TestMessage: 8 ECU
                             unit="%",
                             x_values=[0.0, 1.0, 2.0],
                             y_values=[1.0, 2.0, 3.0],
+                            frame_indices=[10, 11, 12],
                         )
                     ],
                 )
@@ -191,6 +194,7 @@ BO_ 517 TestMessage: 8 ECU
                             unit="%",
                             x_values=[0.0, 1.0],
                             y_values=[4.0, 5.0],
+                            frame_indices=[20, 21],
                         )
                     ],
                 )
@@ -220,6 +224,7 @@ BO_ 517 TestMessage: 8 ECU
                             unit="%",
                             x_values=[0.0, 1.0],
                             y_values=[1.0, 2.0],
+                            frame_indices=[30, 31],
                         )
                     ],
                 ),
@@ -233,6 +238,7 @@ BO_ 517 TestMessage: 8 ECU
                             unit="Hz",
                             x_values=[0.0, 1.0],
                             y_values=[10.0, 20.0],
+                            frame_indices=[40, 41],
                         )
                     ],
                 ),
@@ -244,6 +250,101 @@ BO_ 517 TestMessage: 8 ECU
         self.assertEqual(len(widget._unit_views), 1)
         self.assertTrue(plot_item.getAxis("right").isVisible())
         self.assertEqual(len(plot_item.legend.items), 2)
+
+    def test_plot_widget_finds_hovered_sample_on_secondary_axis(self) -> None:
+        if not (HAS_PYSIDE6 and HAS_PYQTGRAPH):
+            self.skipTest("Qt plotting dependencies are not installed")
+
+        widget = MultiAxisPlotWidget()
+        self.addCleanup(widget.deleteLater)
+        widget.resize(640, 480)
+        widget.show()
+        self._app.processEvents()
+
+        widget.set_series(
+            [
+                PlotAxisGroup(
+                    unit="%",
+                    series=[
+                        PlotSeries(
+                            key="Message.SignalA",
+                            message_name="Message",
+                            signal_name="SignalA",
+                            unit="%",
+                            x_values=[0.0, 1.0],
+                            y_values=[1.0, 2.0],
+                            frame_indices=[30, 31],
+                        )
+                    ],
+                ),
+                PlotAxisGroup(
+                    unit="Hz",
+                    series=[
+                        PlotSeries(
+                            key="Message.SignalB",
+                            message_name="Message",
+                            signal_name="SignalB",
+                            unit="Hz",
+                            x_values=[0.0, 1.0],
+                            y_values=[10.0, 20.0],
+                            frame_indices=[40, 41],
+                        )
+                    ],
+                ),
+            ]
+        )
+        self._app.processEvents()
+
+        secondary_view = widget._unit_views[0][0]
+        scene_point = secondary_view.mapViewToScene(QPointF(1.0, 20.0))
+
+        hovered = widget._find_closest_sample(scene_point)
+
+        self.assertIsNotNone(hovered)
+        assert hovered is not None
+        self.assertEqual(hovered.record.series.signal_name, "SignalB")
+        self.assertEqual(hovered.sample_index, 1)
+
+    def test_plot_widget_click_emits_hovered_frame_index(self) -> None:
+        if not (HAS_PYSIDE6 and HAS_PYQTGRAPH):
+            self.skipTest("Qt plotting dependencies are not installed")
+
+        widget = MultiAxisPlotWidget()
+        self.addCleanup(widget.deleteLater)
+
+        widget.set_series(
+            [
+                PlotAxisGroup(
+                    unit="%",
+                    series=[
+                        PlotSeries(
+                            key="Message.Signal",
+                            message_name="Message",
+                            signal_name="Signal",
+                            unit="%",
+                            x_values=[0.0, 1.0],
+                            y_values=[1.0, 2.0],
+                            frame_indices=[50, 51],
+                        )
+                    ],
+                )
+            ]
+        )
+
+        emitted: list[int] = []
+        widget.sampleActivated.connect(emitted.append)
+        widget._hovered_sample = widget._find_closest_sample(
+            widget._plot_widget.getPlotItem().vb.mapViewToScene(QPointF(1.0, 2.0))
+        )
+
+        class FakeClickEvent:
+            @staticmethod
+            def button():
+                return Qt.MouseButton.LeftButton
+
+        widget._on_scene_mouse_clicked(FakeClickEvent())
+
+        self.assertEqual(emitted, [51])
 
 
 if __name__ == "__main__":

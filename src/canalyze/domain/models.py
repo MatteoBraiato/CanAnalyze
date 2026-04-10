@@ -74,6 +74,7 @@ class PlotSeries:
     unit: str
     x_values: list[float]
     y_values: list[float]
+    frame_indices: list[int]
 
 
 @dataclass(slots=True)

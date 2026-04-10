@@ -10,6 +10,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from canalyze.compat import HAS_PYSIDE6
+from canalyze.domain.dataset import FrameDataset
+from canalyze.domain.models import CANFrame
 from canalyze.services.decoder import DecoderService
 from canalyze.services.filtering import FilterEngine
 from canalyze.services.loader import DatasetLoader
@@ -60,6 +62,31 @@ class MainWindowTests(unittest.TestCase):
         self.addCleanup(window.deleteLater)
 
         self.assertIn(__version__, window.windowTitle())
+
+    def test_select_message_row_for_frame_updates_selection_and_raw_inspector(self) -> None:
+        window = MainWindow(
+            loader=DatasetLoader(),
+            decoder=DecoderService(),
+            filter_engine=FilterEngine(),
+            plot_builder=PlotModelBuilder(),
+        )
+        self.addCleanup(window.deleteLater)
+
+        window.dataset = FrameDataset.from_frames(
+            [
+                CANFrame(timestamp=0.1, can_id=0x100, dlc=2, data=bytes([0x01, 0x02])),
+                CANFrame(timestamp=0.2, can_id=0x200, dlc=2, data=bytes([0xAA, 0xBB])),
+            ]
+        )
+        window.filtered_indices = [0, 1]
+        window._refresh_views()
+
+        window._select_message_row_for_frame(1)
+
+        selected_rows = window.message_table.selectionModel().selectedRows()
+        self.assertEqual(len(selected_rows), 1)
+        self.assertEqual(selected_rows[0].row(), 1)
+        self.assertIn("CAN ID: 0x200", window.raw_inspector.toPlainText())
 
 
 if __name__ == "__main__":
