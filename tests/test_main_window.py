@@ -88,6 +88,33 @@ class MainWindowTests(unittest.TestCase):
         self.assertEqual(selected_rows[0].row(), 1)
         self.assertIn("CAN ID: 0x200", window.raw_inspector.toPlainText())
 
+    def test_message_table_uses_wide_columns_and_row_readability_settings(self) -> None:
+        window = MainWindow(
+            loader=DatasetLoader(),
+            decoder=DecoderService(),
+            filter_engine=FilterEngine(),
+            plot_builder=PlotModelBuilder(),
+        )
+        self.addCleanup(window.deleteLater)
+
+        window.dataset = FrameDataset.from_frames(
+            [
+                CANFrame(
+                    timestamp=12.345678,
+                    can_id=0x18FF50E5,
+                    dlc=8,
+                    data=bytes([0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x01, 0x02]),
+                )
+            ]
+        )
+        window.filtered_indices = [0]
+        window._refresh_views()
+
+        self.assertFalse(window.message_table.showGrid())
+        self.assertGreaterEqual(window.message_table.columnWidth(0), 130)
+        self.assertGreaterEqual(window.message_table.columnWidth(3), 230)
+        self.assertIn("QTableView::item:selected:active", window.message_table.styleSheet())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -23,6 +23,7 @@ if HAS_PYSIDE6:
         QFileDialog,
         QFormLayout,
         QHBoxLayout,
+        QHeaderView,
         QLabel,
         QLineEdit,
         QMainWindow,
@@ -36,6 +37,8 @@ if HAS_PYSIDE6:
         QToolButton,
         QTreeWidget,
         QTreeWidgetItem,
+        QStyledItemDelegate,
+        QStyle,
         QVBoxLayout,
         QWidget,
         QSizePolicy,
@@ -102,6 +105,22 @@ QStatusBar {
     color: #eef2f7;
 }
 """.strip()
+
+
+MESSAGE_TABLE_MIN_WIDTHS = {
+    0: 130,
+    1: 100,
+    2: 70,
+    3: 230,
+    4: 180,
+}
+
+
+if HAS_PYSIDE6:
+    class _MessageTableDelegate(QStyledItemDelegate):
+        def paint(self, painter, option, index) -> None:
+            option.state &= ~QStyle.StateFlag.State_HasFocus
+            super().paint(painter, option, index)
 
 
 class MainWindow(QMainWindow):
@@ -186,6 +205,12 @@ class MainWindow(QMainWindow):
         self.message_table.setSelectionMode(QTableView.SingleSelection)
         self.message_table.selectionModel().selectionChanged.connect(self._update_raw_inspector)
         self.message_table.setSortingEnabled(True)
+        self.message_table.setItemDelegate(_MessageTableDelegate(self.message_table))
+        self.message_table.setAlternatingRowColors(True)
+        self.message_table.setShowGrid(False)
+        self.message_table.verticalHeader().setVisible(False)
+        self.message_table.horizontalHeader().setStretchLastSection(True)
+        self.message_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.plot_widget.sampleActivated.connect(self._select_message_row_for_frame)
 
         self.raw_inspector = QPlainTextEdit(self)
@@ -369,6 +394,7 @@ class MainWindow(QMainWindow):
             return
         rows = materialize_filtered_rows(self._table_rows, self.filtered_indices)
         self.table_model.set_rows(rows)
+        self._resize_message_table_columns()
         self._populate_signal_tree()
         self._refresh_plot()
         self._show_warnings()
@@ -451,6 +477,8 @@ class MainWindow(QMainWindow):
             self.theme_toggle_button.setAccessibleName(
                 "Light theme toggle" if self._theme_mode == "dark" else "Dark theme toggle"
             )
+        if hasattr(self, "message_table"):
+            self._apply_message_table_theme()
         if hasattr(self, "plot_widget"):
             self.plot_widget.set_theme(self._theme_mode)
 
@@ -524,6 +552,52 @@ class MainWindow(QMainWindow):
             *byte_lines,
         ]
         self.raw_inspector.setPlainText("\n".join(summary))
+
+    def _resize_message_table_columns(self) -> None:
+        header = self.message_table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.message_table.resizeColumnsToContents()
+        for column, minimum_width in MESSAGE_TABLE_MIN_WIDTHS.items():
+            header.setSectionResizeMode(column, QHeaderView.Interactive)
+            self.message_table.setColumnWidth(column, max(self.message_table.columnWidth(column), minimum_width))
+        header.setSectionResizeMode(4, QHeaderView.Stretch)
+
+    def _apply_message_table_theme(self) -> None:
+        if self._theme_mode == "dark":
+            colors = {
+                "base": "#20242c",
+                "alternate": "#252a33",
+                "selection": "#31445d",
+                "text": "#eef2f7",
+            }
+        else:
+            colors = {
+                "base": "#ffffff",
+                "alternate": "#f7f9fc",
+                "selection": "#d9e8ff",
+                "text": "#1c1f24",
+            }
+        self.message_table.setStyleSheet(
+            f"""
+            QTableView {{
+                background-color: {colors["base"]};
+                alternate-background-color: {colors["alternate"]};
+                color: {colors["text"]};
+            }}
+            QTableView::item {{
+                padding: 4px 8px;
+            }}
+            QTableView::item:selected:active,
+            QTableView::item:selected:inactive {{
+                background-color: {colors["selection"]};
+                color: {colors["text"]};
+            }}
+            QTableView::item:focus {{
+                outline: none;
+                border: none;
+            }}
+            """
+        )
 
     def _select_message_row_for_frame(self, frame_index: int) -> None:
         if self.dataset is None or frame_index not in self.filtered_indices:
