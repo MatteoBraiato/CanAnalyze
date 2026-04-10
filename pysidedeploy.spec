@@ -4,7 +4,7 @@ project_dir = .
 input_file = src/canalyze/app.py
 project_file = canalyze.pyproject
 exec_directory = dist
-icon =
+icon = icon\icon.ico
 
 [python]
 python_path = .venv-win\Scripts\python.exe

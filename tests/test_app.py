@@ -8,10 +8,42 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from canalyze.app import _show_startup_failure, main
+from canalyze.app import (
+    APP_USER_MODEL_ID,
+    _resolve_app_icon_path,
+    _set_windows_app_user_model_id,
+    _show_startup_failure,
+    main,
+)
 
 
 class AppStartupTests(unittest.TestCase):
+    def test_resolve_app_icon_path_returns_repo_icon(self) -> None:
+        icon_path = _resolve_app_icon_path()
+
+        self.assertIsNotNone(icon_path)
+        assert icon_path is not None
+        self.assertEqual(icon_path.name, "icon.png")
+        self.assertTrue(icon_path.is_file())
+
+    def test_set_windows_app_user_model_id_uses_expected_id(self) -> None:
+        fake_shell32 = type("FakeShell32", (), {"calls": []})()
+
+        def record_call(value):
+            fake_shell32.calls.append(value)
+            return 0
+
+        fake_shell32.SetCurrentProcessExplicitAppUserModelID = record_call
+        fake_ctypes = type("FakeCtypes", (), {"windll": type("Windll", (), {"shell32": fake_shell32})()})()
+
+        with (
+            patch("canalyze.app.sys.platform", "win32"),
+            patch("canalyze.app.ctypes", fake_ctypes),
+        ):
+            _set_windows_app_user_model_id()
+
+        self.assertEqual(fake_shell32.calls, [APP_USER_MODEL_ID])
+
     def test_main_reports_startup_failures(self) -> None:
         with (
             patch("canalyze.app._run_application", side_effect=RuntimeError("boom")),

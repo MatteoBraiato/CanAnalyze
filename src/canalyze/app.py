@@ -1,11 +1,34 @@
 from __future__ import annotations
 
+import ctypes
 import os
 import sys
 import traceback
 from pathlib import Path
 
 from canalyze.version import APP_NAME, __version__
+
+APP_USER_MODEL_ID = "MatteoBraiatoLTE.CanAnalyze"
+
+
+def _application_root() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parents[2]
+
+
+def _resolve_app_icon_path() -> Path | None:
+    icon_path = _application_root() / "icon" / "icon.png"
+    return icon_path if icon_path.is_file() else None
+
+
+def _set_windows_app_user_model_id() -> None:
+    if sys.platform != "win32":
+        return
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
+    except Exception:
+        return
 
 
 def _startup_log_path() -> Path:
@@ -85,6 +108,8 @@ def _show_startup_failure(exc: BaseException) -> None:
 
 def _run_application() -> int:
     QApplication, QMessageBox, QDialog = _import_qt_widgets()
+    from PySide6.QtGui import QIcon
+
     (
         DecoderService,
         FilterEngine,
@@ -94,20 +119,30 @@ def _run_application() -> int:
         StartupDialog,
     ) = _import_application_components()
 
+    _set_windows_app_user_model_id()
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setApplicationVersion(__version__)
+    icon_path = _resolve_app_icon_path()
+    app_icon = QIcon(str(icon_path)) if icon_path is not None else None
+    if app_icon is not None and not app_icon.isNull():
+        app.setWindowIcon(app_icon)
+
     loader = DatasetLoader()
     decoder = DecoderService()
     filter_engine = FilterEngine()
     plot_builder = PlotModelBuilder()
 
     startup = StartupDialog()
+    if app_icon is not None and not app_icon.isNull():
+        startup.setWindowIcon(app_icon)
     if startup.exec() != QDialog.DialogCode.Accepted or startup.selection() is None:
         return 0
 
     selection = startup.selection()
     window = MainWindow(loader, decoder, filter_engine, plot_builder)
+    if app_icon is not None and not app_icon.isNull():
+        window.setWindowIcon(app_icon)
     window.show()
     try:
         window.load_log(selection.log_path, selection.dbc_path)

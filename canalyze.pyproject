@@ -1,5 +1,7 @@
 {
   "files": [
+    "icon/icon.ico",
+    "icon/icon.png",
     "src/canalyze/__init__.py",
     "src/canalyze/__main__.py",
     "src/canalyze/app.py",

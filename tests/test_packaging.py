@@ -14,6 +14,7 @@ class PackagingConfigTests(unittest.TestCase):
         config.read(self.repo_root / "pysidedeploy.spec", encoding="utf-8")
 
         self.assertEqual(config.get("app", "input_file"), "src/canalyze/app.py")
+        self.assertEqual(config.get("app", "icon"), r"icon\icon.ico")
         self.assertEqual(
             config.get("python", "packages"),
             "nuitka,ordered-set,zstandard",
@@ -23,6 +24,8 @@ class PackagingConfigTests(unittest.TestCase):
             config.get("nuitka", "extra_args"),
             "--output-filename=CanAnalyze.exe --windows-console-mode=disable",
         )
+        self.assertTrue((self.repo_root / "icon" / "icon.png").is_file())
+        self.assertTrue((self.repo_root / "icon" / "icon.ico").is_file())
 
     def test_bundle_script_bootstraps_visual_studio_and_validates_output(self) -> None:
         script_text = (self.repo_root / "scripts" / "build_windows_bundle.ps1").read_text(
