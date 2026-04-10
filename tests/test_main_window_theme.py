@@ -16,7 +16,7 @@ from canalyze.services.loader import DatasetLoader
 from canalyze.services.plotting import PlotModelBuilder
 
 if HAS_PYSIDE6:
-    from PySide6.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication, QToolButton
 
     from canalyze.ui.main_window import MainWindow
 else:
@@ -30,7 +30,7 @@ class MainWindowThemeTests(unittest.TestCase):
         super().setUpClass()
         cls._app = QApplication.instance() or QApplication([])
 
-    def test_toggle_theme_updates_mode_and_button_text(self) -> None:
+    def test_toggle_theme_updates_mode_and_button_state(self) -> None:
         window = MainWindow(
             loader=DatasetLoader(),
             decoder=DecoderService(),
@@ -40,19 +40,22 @@ class MainWindowThemeTests(unittest.TestCase):
         self.addCleanup(window.deleteLater)
 
         self.assertEqual(window._theme_mode, "light")
-        self.assertEqual(window.theme_toggle_button.text(), "Dark Theme")
+        self.assertIsInstance(window.theme_toggle_button, QToolButton)
+        self.assertEqual(window.theme_toggle_button.toolTip(), "Switch to dark theme")
+        self.assertFalse(window.theme_toggle_button.icon().isNull())
 
         window.toggle_theme()
 
         self.assertEqual(window._theme_mode, "dark")
-        self.assertEqual(window.theme_toggle_button.text(), "Light Theme")
+        self.assertEqual(window.theme_toggle_button.toolTip(), "Switch to light theme")
+        self.assertFalse(window.theme_toggle_button.icon().isNull())
         self.assertIn("#171a1f", window.styleSheet())
         self.assertEqual(window.plot_widget._axis_color, "#eef2f7")
 
         window.toggle_theme()
 
         self.assertEqual(window._theme_mode, "light")
-        self.assertEqual(window.theme_toggle_button.text(), "Dark Theme")
+        self.assertEqual(window.theme_toggle_button.toolTip(), "Switch to dark theme")
         self.assertIn("#f5f6f8", window.styleSheet())
         self.assertEqual(window.plot_widget._axis_color, "#1c1f24")
 

@@ -17,7 +17,8 @@ from canalyze.ui.workers import FunctionWorker
 from canalyze.version import APP_NAME, __version__
 
 if HAS_PYSIDE6:
-    from PySide6.QtCore import Qt
+    from PySide6.QtCore import QPointF, QRectF, QSize, Qt
+    from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
     from PySide6.QtWidgets import (
         QFileDialog,
         QFormLayout,
@@ -32,10 +33,12 @@ if HAS_PYSIDE6:
         QStatusBar,
         QTableView,
         QToolBar,
+        QToolButton,
         QTreeWidget,
         QTreeWidgetItem,
         QVBoxLayout,
         QWidget,
+        QSizePolicy,
     )
 else:
     QMainWindow = object
@@ -213,6 +216,7 @@ class MainWindow(QMainWindow):
 
     def _build_toolbar(self) -> None:
         toolbar = QToolBar("Main", self)
+        toolbar.setMovable(False)
         self.addToolBar(toolbar)
 
         open_log = QPushButton("Open Log", self)
@@ -225,7 +229,15 @@ class MainWindow(QMainWindow):
         expand_tree.clicked.connect(self.expand_signal_tree)
         collapse_tree = QPushButton("Collapse All", self)
         collapse_tree.clicked.connect(self.collapse_signal_tree)
-        self.theme_toggle_button = QPushButton("Dark Theme", self)
+
+        spacer = QWidget(self)
+        spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+        self.theme_toggle_button = QToolButton(self)
+        self.theme_toggle_button.setAutoRaise(True)
+        self.theme_toggle_button.setCursor(Qt.PointingHandCursor)
+        self.theme_toggle_button.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        self.theme_toggle_button.setIconSize(QSize(22, 22))
         self.theme_toggle_button.clicked.connect(self.toggle_theme)
 
         toolbar.addWidget(open_log)
@@ -233,6 +245,7 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(clear_dbc)
         toolbar.addWidget(expand_tree)
         toolbar.addWidget(collapse_tree)
+        toolbar.addWidget(spacer)
         toolbar.addWidget(self.theme_toggle_button)
 
     def _select_log(self) -> None:
@@ -430,9 +443,60 @@ class MainWindow(QMainWindow):
         stylesheet = DARK_THEME_STYLESHEET if self._theme_mode == "dark" else LIGHT_THEME_STYLESHEET
         self.setStyleSheet(stylesheet)
         if hasattr(self, "theme_toggle_button"):
-            self.theme_toggle_button.setText("Light Theme" if self._theme_mode == "dark" else "Dark Theme")
+            self.theme_toggle_button.setIcon(self._theme_toggle_icon())
+            self.theme_toggle_button.setToolTip(
+                "Switch to light theme" if self._theme_mode == "dark" else "Switch to dark theme"
+            )
+            self.theme_toggle_button.setAccessibleName(
+                "Light theme toggle" if self._theme_mode == "dark" else "Dark theme toggle"
+            )
         if hasattr(self, "plot_widget"):
             self.plot_widget.set_theme(self._theme_mode)
+
+    def _theme_toggle_icon(self) -> QIcon:
+        return self._create_moon_icon() if self._theme_mode == "dark" else self._create_sun_icon()
+
+    def _create_sun_icon(self) -> QIcon:
+        pixmap = QPixmap(24, 24)
+        pixmap.fill(Qt.transparent)
+
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor("#f4b400"))
+        painter.drawEllipse(QRectF(7.0, 7.0, 10.0, 10.0))
+
+        painter.setPen(QPen(QColor("#f4b400"), 1.8, Qt.SolidLine, Qt.RoundCap))
+        for start, end in (
+            (QPointF(12.0, 2.5), QPointF(12.0, 5.0)),
+            (QPointF(12.0, 19.0), QPointF(12.0, 21.5)),
+            (QPointF(2.5, 12.0), QPointF(5.0, 12.0)),
+            (QPointF(19.0, 12.0), QPointF(21.5, 12.0)),
+            (QPointF(5.2, 5.2), QPointF(7.0, 7.0)),
+            (QPointF(17.0, 17.0), QPointF(18.8, 18.8)),
+            (QPointF(5.2, 18.8), QPointF(7.0, 17.0)),
+            (QPointF(17.0, 7.0), QPointF(18.8, 5.2)),
+        ):
+            painter.drawLine(start, end)
+        painter.end()
+        return QIcon(pixmap)
+
+    def _create_moon_icon(self) -> QIcon:
+        pixmap = QPixmap(24, 24)
+        pixmap.fill(Qt.transparent)
+
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor("#eef2f7"))
+        painter.drawEllipse(QRectF(5.0, 4.0, 14.0, 14.0))
+        painter.setBrush(QColor("#171a1f"))
+        painter.drawEllipse(QRectF(9.0, 3.0, 12.0, 14.0))
+        painter.setBrush(QColor("#eef2f7"))
+        painter.drawEllipse(QRectF(16.5, 6.0, 2.0, 2.0))
+        painter.drawEllipse(QRectF(18.0, 10.0, 1.4, 1.4))
+        painter.end()
+        return QIcon(pixmap)
 
     def _update_raw_inspector(self, *_args) -> None:
         if self.dataset is None:
