@@ -115,6 +115,40 @@ class MainWindowTests(unittest.TestCase):
         self.assertGreaterEqual(window.message_table.columnWidth(3), 230)
         self.assertIn("QTableView::item:selected:active", window.message_table.styleSheet())
 
+    def test_filter_controls_build_searchable_multi_select_criteria(self) -> None:
+        window = MainWindow(
+            loader=DatasetLoader(),
+            decoder=DecoderService(),
+            filter_engine=FilterEngine(),
+            plot_builder=PlotModelBuilder(),
+        )
+        self.addCleanup(window.deleteLater)
+
+        window.dataset = FrameDataset.from_frames(
+            [
+                CANFrame(timestamp=0.1, can_id=0x100, dlc=2, data=bytes([0x01, 0x02])),
+                CANFrame(timestamp=0.2, can_id=0x200, dlc=2, data=bytes([0x03, 0x04])),
+            ]
+        )
+        window.dataset.decoded_messages = [
+            type("Decoded", (), {"message_name": "EngineData"})(),
+            type("Decoded", (), {"message_name": "BrakeData"})(),
+        ]
+        window.filtered_indices = [0, 1]
+        window._refresh_views()
+
+        window.filter_can_ids._line_edit.setText("256")
+        window.filter_message_names._line_edit.setText("EngineData")
+        window.filter_can_ids._refresh_popup_items("20")
+
+        self.assertEqual(window.filter_can_ids._list_widget.count(), 1)
+        self.assertEqual(window.filter_can_ids._list_widget.item(0).text(), "0x200")
+
+        criteria = window._read_filter_criteria()
+
+        self.assertEqual(criteria.can_ids, {0x100})
+        self.assertEqual(criteria.message_names, {"EngineData"})
+
 
 if __name__ == "__main__":
     unittest.main()

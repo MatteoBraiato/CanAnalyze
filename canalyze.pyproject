@@ -19,6 +19,7 @@
     "src/canalyze/services/plotting.py",
     "src/canalyze/ui/__init__.py",
     "src/canalyze/ui/dbc_conflict_dialog.py",
+    "src/canalyze/ui/filter_controls.py",
     "src/canalyze/ui/main_window.py",
     "src/canalyze/ui/models.py",
     "src/canalyze/ui/plot_widget.py",

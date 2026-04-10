@@ -10,6 +10,7 @@ from canalyze.services.filtering import FilterEngine
 from canalyze.services.loader import DatasetLoader
 from canalyze.services.plotting import PlotModelBuilder
 from canalyze.ui.dbc_conflict_dialog import DbcConflictResolutionDialog
+from canalyze.ui.filter_controls import FilterOption, SearchableMultiSelectFilter
 from canalyze.ui.models import FrameTableModel
 from canalyze.ui.plot_widget import MultiAxisPlotWidget
 from canalyze.ui.view_helpers import materialize_filtered_rows
@@ -21,7 +22,7 @@ if HAS_PYSIDE6:
     from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
     from PySide6.QtWidgets import (
         QFileDialog,
-        QFormLayout,
+        QGridLayout,
         QHBoxLayout,
         QHeaderView,
         QLabel,
@@ -172,20 +173,35 @@ class MainWindow(QMainWindow):
         top_splitter.addWidget(self.plot_widget)
         top_splitter.setStretchFactor(1, 1)
 
-        self.filter_can_ids = QLineEdit(self)
+        self.filter_can_ids = SearchableMultiSelectFilter(
+            "Type or pick CAN IDs",
+            normalizer=self._normalize_can_id_filter_value,
+            parent=self,
+        )
         self.filter_time_start = QLineEdit(self)
         self.filter_time_end = QLineEdit(self)
-        self.filter_message_names = QLineEdit(self)
+        self.filter_message_names = SearchableMultiSelectFilter(
+            "Type or pick message names",
+            normalizer=self._normalize_message_name_filter_value,
+            parent=self,
+        )
         apply_filter_button = QPushButton("Apply Filters", self)
         apply_filter_button.clicked.connect(self.apply_filters)
         clear_filter_button = QPushButton("Clear", self)
         clear_filter_button.clicked.connect(self.clear_filters)
 
-        filter_form = QFormLayout()
-        filter_form.addRow("CAN IDs", self.filter_can_ids)
-        filter_form.addRow("Start time (s)", self.filter_time_start)
-        filter_form.addRow("End time (s)", self.filter_time_end)
-        filter_form.addRow("Message names", self.filter_message_names)
+        filter_grid = QGridLayout()
+        filter_grid.setContentsMargins(0, 0, 0, 0)
+        filter_grid.setHorizontalSpacing(12)
+        filter_grid.setVerticalSpacing(8)
+        filter_grid.addWidget(QLabel("CAN IDs", self), 0, 0)
+        filter_grid.addWidget(QLabel("Message names", self), 0, 1)
+        filter_grid.addWidget(self.filter_can_ids, 1, 0)
+        filter_grid.addWidget(self.filter_message_names, 1, 1)
+        filter_grid.addWidget(QLabel("Start time (s)", self), 2, 0)
+        filter_grid.addWidget(QLabel("End time (s)", self), 2, 1)
+        filter_grid.addWidget(self.filter_time_start, 3, 0)
+        filter_grid.addWidget(self.filter_time_end, 3, 1)
 
         filter_actions = QHBoxLayout()
         filter_actions.addStretch(1)
@@ -195,7 +211,8 @@ class MainWindow(QMainWindow):
         filter_panel = QWidget(self)
         filter_panel_layout = QVBoxLayout(filter_panel)
         filter_panel_layout.setContentsMargins(0, 0, 0, 0)
-        filter_panel_layout.addLayout(filter_form)
+        filter_panel_layout.setSpacing(8)
+        filter_panel_layout.addLayout(filter_grid)
         filter_panel_layout.addLayout(filter_actions)
 
         self.table_model = FrameTableModel([])
@@ -369,16 +386,14 @@ class MainWindow(QMainWindow):
         can_ids = None
         message_names = None
 
-        raw_can_ids = [part.strip() for part in self.filter_can_ids.text().split(",") if part.strip()]
+        raw_can_ids = self.filter_can_ids.selected_values()
         if raw_can_ids:
             can_ids = {
                 int(part, 16) if part.lower().startswith("0x") else int(part)
                 for part in raw_can_ids
             }
 
-        raw_message_names = [
-            part.strip() for part in self.filter_message_names.text().split(",") if part.strip()
-        ]
+        raw_message_names = self.filter_message_names.selected_values()
         if raw_message_names:
             message_names = set(raw_message_names)
 
@@ -394,6 +409,7 @@ class MainWindow(QMainWindow):
             return
         rows = materialize_filtered_rows(self._table_rows, self.filtered_indices)
         self.table_model.set_rows(rows)
+        self._refresh_filter_options()
         self._resize_message_table_columns()
         self._populate_signal_tree()
         self._refresh_plot()
@@ -598,6 +614,53 @@ class MainWindow(QMainWindow):
             }}
             """
         )
+
+    def _refresh_filter_options(self) -> None:
+        if self.dataset is None:
+            self.filter_can_ids.set_available_options([])
+            self.filter_message_names.set_available_options([])
+            return
+
+        can_id_options = [
+            FilterOption(
+                value=f"0x{can_id:X}",
+                display=f"0x{can_id:X}",
+                search_terms=(f"0x{can_id:X}".lower(), str(can_id)),
+            )
+            for can_id in sorted({frame.can_id for frame in self.dataset.frames})
+        ]
+        message_name_options = [
+            FilterOption(
+                value=message_name,
+                display=message_name,
+                search_terms=(message_name.lower(),),
+            )
+            for message_name in sorted(
+                {
+                    decoded.message_name
+                    for decoded in self.dataset.decoded_messages
+                    if decoded.message_name
+                }
+            )
+        ]
+        self.filter_can_ids.set_available_options(can_id_options)
+        self.filter_message_names.set_available_options(message_name_options)
+
+    @staticmethod
+    def _normalize_can_id_filter_value(text: str) -> str | None:
+        value = text.strip()
+        if not value:
+            return None
+        try:
+            parsed = int(value, 16) if value.lower().startswith("0x") else int(value)
+        except ValueError:
+            return None
+        return f"0x{parsed:X}"
+
+    @staticmethod
+    def _normalize_message_name_filter_value(text: str) -> str | None:
+        value = text.strip()
+        return value or None
 
     def _select_message_row_for_frame(self, frame_index: int) -> None:
         if self.dataset is None or frame_index not in self.filtered_indices:
