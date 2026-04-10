@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
-from importlib.util import find_spec
+from importlib import import_module
 
 
 def dependency_available(module_name: str) -> bool:
-    return find_spec(module_name) is not None
+    try:
+        import_module(module_name)
+    except ImportError:
+        return False
+    return True
 
 
 HAS_CANTOOLS = dependency_available("cantools")

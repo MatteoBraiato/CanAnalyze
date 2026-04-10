@@ -4,7 +4,7 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $venvPath = Join-Path $repoRoot ".venv-win"
 $pythonExe = Join-Path $venvPath "Scripts\python.exe"
 $issPath = Join-Path $repoRoot "installer\CanAnalyze.iss"
-$distPath = Join-Path $repoRoot "dist\CanAnalyze"
+$distPath = Join-Path $repoRoot "dist\CanAnalyze.dist"
 $bundleExe = Join-Path $distPath "CanAnalyze.exe"
 $isccExe = $null
 

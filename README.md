@@ -84,7 +84,9 @@ Packaging notes:
 - installer output is written to `release/`
 - the installer filename includes the app version
 - the installed app shows the same version in its window title
-- the bundle script validates that `dist\CanAnalyze\CanAnalyze.exe` exists before reporting success
+- the installed Windows app is built as a GUI executable, so it should not open a command prompt window
+- the bundle script auto-detects Visual Studio Build Tools and bootstraps the developer shell when needed
+- the bundle script validates that `dist\CanAnalyze.dist\CanAnalyze.exe` exists before reporting success
 
 Prerequisites for packaging on Windows:
 
@@ -92,6 +94,7 @@ Prerequisites for packaging on Windows:
 - Microsoft C++ Build Tools or another supported C compiler available for Nuitka
 - Inno Setup 6 installed on the packaging machine
 - `dumpbin.exe` is recommended for more reliable dependency discovery during deploy
+- adding only `MSBuild\Current\Bin` to `PATH` is not sufficient; the MSVC developer environment must be initialized
 
 ## WSL Setup
 
@@ -169,3 +172,15 @@ Run the full suite with:
 . .venv-wsl/bin/activate
 python -m unittest discover -s tests
 ```
+
+If Windows packaging fails, the quickest shell preflight is:
+
+```powershell
+where cl
+where dumpbin
+echo $env:VSCMD_VER
+```
+
+The bundle script now tries to initialize the Visual Studio developer shell automatically, but `Developer PowerShell for VS` remains a useful manual fallback when troubleshooting packaging issues.
+
+If a packaged Windows build fails during startup, the app writes a startup error log under the user's local app data folder in `CanAnalyze\startup-error.log` and shows a message box instead of silently exiting.
