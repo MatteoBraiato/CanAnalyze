@@ -9,6 +9,7 @@ from pathlib import Path
 from canalyze.version import APP_NAME, __version__
 
 APP_USER_MODEL_ID = "MatteoBraiatoLTE.CanAnalyze"
+SMOKE_TEST_ENV_VAR = "CANALYZE_SMOKE_TEST"
 
 
 def _application_root() -> Path:
@@ -20,6 +21,10 @@ def _application_root() -> Path:
 def _resolve_app_icon_path() -> Path | None:
     icon_path = _application_root() / "icon" / "icon.png"
     return icon_path if icon_path.is_file() else None
+
+
+def _is_smoke_test_mode() -> bool:
+    return os.environ.get(SMOKE_TEST_ENV_VAR) == "1"
 
 
 def _set_windows_app_user_model_id() -> None:
@@ -59,6 +64,12 @@ def _import_qt_widgets():
     from PySide6.QtWidgets import QApplication, QMessageBox, QDialog
 
     return QApplication, QMessageBox, QDialog
+
+
+def _import_qt_icon():
+    from PySide6.QtGui import QIcon
+
+    return QIcon
 
 
 def _import_application_components():
@@ -108,7 +119,7 @@ def _show_startup_failure(exc: BaseException) -> None:
 
 def _run_application() -> int:
     QApplication, QMessageBox, QDialog = _import_qt_widgets()
-    from PySide6.QtGui import QIcon
+    QIcon = _import_qt_icon()
 
     (
         DecoderService,
@@ -127,6 +138,9 @@ def _run_application() -> int:
     app_icon = QIcon(str(icon_path)) if icon_path is not None else None
     if app_icon is not None and not app_icon.isNull():
         app.setWindowIcon(app_icon)
+
+    if _is_smoke_test_mode():
+        return 0
 
     loader = DatasetLoader()
     decoder = DecoderService()

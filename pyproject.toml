@@ -22,6 +22,7 @@ dev = ["pytest>=8.0"]
 packaging = [
   "Nuitka>=2.6",
   "ordered-set>=4.1",
+  "Pillow>=10.0",
   "zstandard>=0.23",
 ]
 
