@@ -18,6 +18,6 @@ plugins =
 
 [nuitka]
 mode = standalone
-extra_args = --output-filename=CanAnalyze.exe --windows-console-mode=disable
+extra_args = --output-filename=CanAnalyze.exe --windows-console-mode=disable --include-package=pyqtgraph
 onefile = False
 
