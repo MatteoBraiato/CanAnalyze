@@ -8,6 +8,7 @@ Current capabilities:
 - optionally load a `.dbc` for message and signal decoding
 - inspect raw frames and decoded message names in the message table
 - select decoded signals from the `Messages / Signals` tree and plot them over time
+- show CAN ID and message name together in the signal tree as `0xID | Name`
 - overlay signals with separate Y-axes when their engineering units differ
 - keep each plotted signal on a stable color across redraws and let the user change colors from the plot legend
 - pan or zoom the plot area with linked multi-axis movement across all rendered signals
@@ -16,8 +17,8 @@ Current capabilities:
 - expand or collapse the full message tree with one click
 - start in dark theme and switch between light and dark mode with the top-right sun/moon toggle
 - resolve two-signal DBC overlaps in a compact conflict dialog before decoding continues
-- filter raw messages with compact searchable multi-select controls for CAN IDs and message names
-- render the raw message table with wider default columns and clearer row selection
+- filter raw messages with one compact searchable multi-select control that matches both CAN IDs and message names together
+- render the raw message table with wider default columns and a visible single-row selection highlight
 - show the application version in the main window title and status area
 - use the bundled application icon in the window chrome, taskbar, installer shortcuts, and Explorer
 
@@ -174,6 +175,7 @@ Toolbar actions:
 
 Notes:
 
+- the CAN-message filter treats CAN ID and message name as one linked item, so searching either term narrows the same dropdown
 - signals with the same unit share one axis
 - plotted signals keep their assigned colors when more signals are added later in the session
 - clicking a legend entry opens a curated palette of clear colors for manual reassignment
@@ -181,8 +183,8 @@ Notes:
 - hovering a curve shows the sample time and decoded value, including engineering unit when available
 - left-clicking a hovered sample selects the matching frame in the message table and refreshes the raw inspector
 - two-signal DBC overlaps open a compact resolution dialog before decode starts
-- CAN ID and message-name filters support manual typing, dropdown selection, and multiple selected values
-- raw message columns auto-size to readable defaults and selected rows are highlighted more coherently
+- CAN IDs and message names are shown together in both the filter dropdown and the signal tree as `0xID | Name`
+- raw message columns auto-size to readable defaults and only the selected row is highlighted
 - the selected theme is session-only and the next launch starts in dark mode
 - the app version is visible in the main window title
 
