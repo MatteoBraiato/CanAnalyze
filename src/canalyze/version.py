@@ -7,7 +7,7 @@ import tomllib
 
 APP_NAME = "CAN Log Analyzer"
 PACKAGE_NAME = "can-log-analyzer"
-FALLBACK_VERSION = "0.1.0"
+FALLBACK_VERSION = "0.2.0"
 
 
 def _read_pyproject_version() -> str | None:
@@ -21,10 +21,13 @@ def _read_pyproject_version() -> str | None:
 
 
 def get_app_version() -> str:
+    pyproject_version = _read_pyproject_version()
+    if pyproject_version:
+        return pyproject_version
     try:
         return package_version(PACKAGE_NAME)
     except PackageNotFoundError:
-        return _read_pyproject_version() or FALLBACK_VERSION
+        return FALLBACK_VERSION
     except Exception:
         return FALLBACK_VERSION
 

@@ -9,12 +9,15 @@ Current capabilities:
 - inspect raw frames and decoded message names in the message table
 - select decoded signals from the `Messages / Signals` tree and plot them over time
 - overlay signals with separate Y-axes when their engineering units differ
+- keep each plotted signal on a stable color across redraws and let the user change colors from the plot legend
 - pan or zoom the plot area with linked multi-axis movement across all rendered signals
 - inspect plot samples on hover with timestamp, decoded value, and engineering unit
 - click a hovered plot sample to select and reveal the matching raw CAN frame in the table
 - expand or collapse the full message tree with one click
-- switch between light and dark theme during the current session with the top-right sun/moon toggle
+- start in dark theme and switch between light and dark mode with the top-right sun/moon toggle
 - resolve two-signal DBC overlaps in a compact conflict dialog before decoding continues
+- filter raw messages with compact searchable multi-select controls for CAN IDs and message names
+- render the raw message table with wider default columns and clearer row selection
 - show the application version in the main window title and status area
 - use the bundled application icon in the window chrome, taskbar, installer shortcuts, and Explorer
 
@@ -31,6 +34,12 @@ Use separate virtual environments per OS:
 The checked-in `requirements-wsl.lock` captures a known working WSL environment. Do not reuse one virtual environment across Windows and WSL.
 
 The application version is defined in `pyproject.toml` and exposed at runtime through package metadata. The installed app shows that version in the main window title so you can identify which build a user has installed.
+
+Versioning policy for future iterations:
+
+- patch version for small fixes and polish
+- minor version for user-visible feature additions
+- major version only for breaking or milestone-level changes
 
 ## Windows Setup
 
@@ -161,16 +170,20 @@ Toolbar actions:
 - `Load DBC`: attach or replace a DBC file
 - `Unload DBC`: return to raw-frame mode
 - `Expand All` / `Collapse All`: control the full message tree
-- top-right sun/moon toggle: switch the session theme
+- top-right sun/moon toggle: switch between the default dark theme and light mode
 
 Notes:
 
 - signals with the same unit share one axis
+- plotted signals keep their assigned colors when more signals are added later in the session
+- clicking a legend entry opens a curated palette of clear colors for manual reassignment
 - signals with different units render on separate synchronized Y-axes and move together during pan/zoom
 - hovering a curve shows the sample time and decoded value, including engineering unit when available
 - left-clicking a hovered sample selects the matching frame in the message table and refreshes the raw inspector
 - two-signal DBC overlaps open a compact resolution dialog before decode starts
-- the selected theme is session-only and resets on the next launch
+- CAN ID and message-name filters support manual typing, dropdown selection, and multiple selected values
+- raw message columns auto-size to readable defaults and selected rows are highlighted more coherently
+- the selected theme is session-only and the next launch starts in dark mode
 - the app version is visible in the main window title
 
 ## Testing
