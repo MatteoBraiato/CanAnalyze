@@ -94,7 +94,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build_windows_installer.ps1
 
 Packaging notes:
 
-- the bundle is generated with `pyside6-deploy` using `pysidedeploy.spec`
+- the bundle is generated with direct `Nuitka` invocation from `scripts/build_windows_bundle.ps1`
 - the installer is generated with Inno Setup using `installer/CanAnalyze.iss`
 - installer output is written to `release/`
 - the installer filename includes the app version
@@ -103,8 +103,14 @@ Packaging notes:
 - the Windows bundle embeds `icon/icon.ico`, and the running app loads `icon/icon.png` as the Qt window icon
 - the installed Windows app is built as a GUI executable, so it should not open a command prompt window
 - the bundle script auto-detects Visual Studio Build Tools and bootstraps the developer shell when needed
+- the bundle script forces `pyqtgraph` to bind to `PySide6` and runs a packaged smoke test that verifies plotting support is actually available
 - the bundle script runs a packaged smoke test before reporting success, so missing release dependencies fail the build instead of slipping into the installer
-- the bundle script validates that `dist\CanAnalyze.dist\CanAnalyze.exe` exists before reporting success
+- the bundle script builds in a temporary `build/windows-bundle` directory, runs the smoke test from a staged bundle, then publishes into the requested output root only after validation succeeds
+- the bundle smoke test is non-interactive; on failure it writes a startup log instead of showing a popup dialog
+- the installer build uses its own staged bundle under `build\windows-installer-bundle\CanAnalyze.dist`, so it does not need to replace an existing `dist\CanAnalyze.dist`
+- the installer build reads the resolved bundle path from a file under `build\`, so it does not depend on parsing bundle-script console output
+- if the preferred bundle output path is locked, the bundle script keeps the validated staged bundle and reports that path instead of failing after a successful build
+- the bundle script validates that the resolved packaged executable exists before reporting success, whether it was published to `dist\CanAnalyze.dist` or retained in staging
 
 Prerequisites for packaging on Windows:
 

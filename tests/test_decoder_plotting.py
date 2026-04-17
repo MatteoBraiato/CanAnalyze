@@ -418,6 +418,105 @@ BO_ 517 TestMessage: 8 ECU
 
         self.assertEqual(emitted, [51])
 
+    def test_plot_widget_enables_context_menu_for_primary_and_secondary_axes(self) -> None:
+        if not (HAS_PYSIDE6 and HAS_PYQTGRAPH):
+            self.skipTest("Qt plotting dependencies are not installed")
+
+        widget = MultiAxisPlotWidget()
+        self.addCleanup(widget.deleteLater)
+
+        widget.set_series(
+            [
+                PlotAxisGroup(
+                    unit="%",
+                    series=[
+                        PlotSeries(
+                            key="Message.SignalA",
+                            can_id=0x100,
+                            message_name="Message",
+                            signal_name="SignalA",
+                            unit="%",
+                            x_values=[0.0, 1.0],
+                            y_values=[1.0, 2.0],
+                            frame_indices=[30, 31],
+                        )
+                    ],
+                ),
+                PlotAxisGroup(
+                    unit="Hz",
+                    series=[
+                        PlotSeries(
+                            key="Message.SignalB",
+                            can_id=0x200,
+                            message_name="Message",
+                            signal_name="SignalB",
+                            unit="Hz",
+                            x_values=[0.0, 1.0],
+                            y_values=[10.0, 20.0],
+                            frame_indices=[40, 41],
+                        )
+                    ],
+                ),
+            ]
+        )
+
+        base_view = widget._plot_widget.getPlotItem().vb
+        self.assertTrue(base_view.menuEnabled())
+        self.assertEqual(len(widget._unit_views), 1)
+        self.assertTrue(widget._unit_views[0][0].menuEnabled())
+
+    def test_view_box_right_click_raises_context_menu(self) -> None:
+        if not (HAS_PYSIDE6 and HAS_PYQTGRAPH):
+            self.skipTest("Qt plotting dependencies are not installed")
+
+        widget = MultiAxisPlotWidget()
+        self.addCleanup(widget.deleteLater)
+
+        widget.set_series(
+            [
+                PlotAxisGroup(
+                    unit="%",
+                    series=[
+                        PlotSeries(
+                            key="Message.Signal",
+                            can_id=0x100,
+                            message_name="Message",
+                            signal_name="Signal",
+                            unit="%",
+                            x_values=[0.0, 1.0],
+                            y_values=[1.0, 2.0],
+                            frame_indices=[10, 11],
+                        )
+                    ],
+                )
+            ]
+        )
+
+        base_view = widget._plot_widget.getPlotItem().vb
+        raised_events = []
+
+        def record_raise_context_menu(event) -> None:
+            raised_events.append(event)
+
+        base_view.raiseContextMenu = record_raise_context_menu
+
+        class FakeRightClickEvent:
+            def __init__(self) -> None:
+                self.accepted = False
+
+            @staticmethod
+            def button():
+                return Qt.MouseButton.RightButton
+
+            def accept(self) -> None:
+                self.accepted = True
+
+        event = FakeRightClickEvent()
+        base_view.mouseClickEvent(event)
+
+        self.assertTrue(event.accepted)
+        self.assertEqual(raised_events, [event])
+
 
 if __name__ == "__main__":
     unittest.main()

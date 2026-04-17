@@ -10,6 +10,7 @@ from canalyze.version import APP_NAME, __version__
 
 APP_USER_MODEL_ID = "MatteoBraiatoLTE.CanAnalyze"
 SMOKE_TEST_ENV_VAR = "CANALYZE_SMOKE_TEST"
+STARTUP_LOG_PATH_ENV_VAR = "CANALYZE_STARTUP_LOG_PATH"
 
 
 def _application_root() -> Path:
@@ -18,13 +19,50 @@ def _application_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def _resolve_app_icon_paths() -> list[Path]:
+    icon_dir = _application_root() / "icon"
+    icon_paths = {
+        "png": icon_dir / "icon.png",
+        "ico": icon_dir / "icon.ico",
+    }
+
+    ordered_suffixes = ["ico", "png"] if sys.platform == "win32" else ["png", "ico"]
+    resolved_paths: list[Path] = []
+    for suffix in ordered_suffixes:
+        icon_path = icon_paths[suffix]
+        if icon_path.is_file():
+            resolved_paths.append(icon_path)
+    return resolved_paths
+
+
 def _resolve_app_icon_path() -> Path | None:
-    icon_path = _application_root() / "icon" / "icon.png"
-    return icon_path if icon_path.is_file() else None
+    icon_paths = _resolve_app_icon_paths()
+    if not icon_paths:
+        return None
+    return icon_paths[0]
+
+
+def _create_app_icon(QIcon) -> object | None:
+    icon_paths = _resolve_app_icon_paths()
+    if not icon_paths:
+        return None
+
+    app_icon = QIcon()
+    for icon_path in icon_paths:
+        app_icon.addFile(str(icon_path))
+
+    if app_icon.isNull():
+        return None
+
+    return app_icon
 
 
 def _is_smoke_test_mode() -> bool:
     return os.environ.get(SMOKE_TEST_ENV_VAR) == "1"
+
+
+def _configure_runtime_environment() -> None:
+    os.environ["PYQTGRAPH_QT_LIB"] = "PySide6"
 
 
 def _set_windows_app_user_model_id() -> None:
@@ -37,6 +75,12 @@ def _set_windows_app_user_model_id() -> None:
 
 
 def _startup_log_path() -> Path:
+    overridden_log_path = os.environ.get(STARTUP_LOG_PATH_ENV_VAR)
+    if overridden_log_path:
+        log_path = Path(overridden_log_path)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        return log_path
+
     local_app_data = os.environ.get("LOCALAPPDATA")
     if local_app_data:
         base_dir = Path(local_app_data)
@@ -90,12 +134,43 @@ def _import_application_components():
     )
 
 
+def _import_plot_widget_module():
+    from canalyze.ui import plot_widget
+
+    return plot_widget
+
+
+def _build_plotting_unavailable_message(plot_widget_module) -> str:
+    message = "pyqtgraph plotting support is unavailable in the packaged application."
+    detail = getattr(plot_widget_module, "get_plotting_unavailable_reason", lambda: None)()
+    if detail:
+        return f"{message} Underlying error: {detail}"
+    return message
+
+
+def _run_smoke_test(app) -> int:
+    _configure_runtime_environment()
+    plot_widget_module = _import_plot_widget_module()
+    plot_widget = plot_widget_module.MultiAxisPlotWidget()
+    try:
+        if getattr(plot_widget, "_plot_widget", None) is None:
+            raise RuntimeError(_build_plotting_unavailable_message(plot_widget_module))
+        return 0
+    finally:
+        plot_widget.deleteLater()
+        app.processEvents()
+
+
 def _show_startup_failure(exc: BaseException) -> None:
     log_path = _write_startup_log(exc)
     detail_lines = [str(exc) or exc.__class__.__name__]
     if log_path is not None:
         detail_lines.append(f"Details were written to:\n{log_path}")
     message = "\n\n".join(detail_lines)
+
+    if _is_smoke_test_mode():
+        print(message, file=sys.stderr)
+        return
 
     try:
         QApplication, QMessageBox, _QDialog = _import_qt_widgets()
@@ -118,6 +193,7 @@ def _show_startup_failure(exc: BaseException) -> None:
 
 
 def _run_application() -> int:
+    _configure_runtime_environment()
     QApplication, QMessageBox, QDialog = _import_qt_widgets()
     QIcon = _import_qt_icon()
 
@@ -134,13 +210,12 @@ def _run_application() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setApplicationVersion(__version__)
-    icon_path = _resolve_app_icon_path()
-    app_icon = QIcon(str(icon_path)) if icon_path is not None else None
+    app_icon = _create_app_icon(QIcon)
     if app_icon is not None and not app_icon.isNull():
         app.setWindowIcon(app_icon)
 
     if _is_smoke_test_mode():
-        return 0
+        return _run_smoke_test(app)
 
     loader = DatasetLoader()
     decoder = DecoderService()

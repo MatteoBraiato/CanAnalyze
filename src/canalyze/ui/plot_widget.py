@@ -4,7 +4,7 @@ from bisect import bisect_left
 from dataclasses import dataclass
 import math
 
-from canalyze.compat import HAS_PYQTGRAPH, HAS_PYSIDE6
+from canalyze.compat import HAS_PYSIDE6
 from canalyze.domain.models import PlotAxisGroup, PlotSeries
 
 if HAS_PYSIDE6:
@@ -15,10 +15,17 @@ else:
     QWidget = object
     Signal = lambda *_args, **_kwargs: None
 
-if HAS_PYQTGRAPH and HAS_PYSIDE6:
-    import pyqtgraph as pg
+_PYQTGRAPH_IMPORT_ERROR: Exception | None = None
+
+if HAS_PYSIDE6:
+    try:
+        import pyqtgraph as pg
+    except Exception as exc:
+        pg = None
+        _PYQTGRAPH_IMPORT_ERROR = exc
 else:
     pg = None
+    _PYQTGRAPH_IMPORT_ERROR = ImportError("PySide6 is not installed.")
 
 
 CLEAR_PLOT_COLORS = [
@@ -52,6 +59,13 @@ class _HoveredSample:
     scene_point: QPointF
 
 
+def get_plotting_unavailable_reason() -> str | None:
+    if _PYQTGRAPH_IMPORT_ERROR is None:
+        return None
+
+    return str(_PYQTGRAPH_IMPORT_ERROR) or _PYQTGRAPH_IMPORT_ERROR.__class__.__name__
+
+
 class MultiAxisPlotWidget(QWidget):
     sampleActivated = Signal(int)
 
@@ -74,10 +88,11 @@ class MultiAxisPlotWidget(QWidget):
         self._hover_text = "#1c1f24"
 
         if pg is None:
-            self._placeholder = QLabel(
-                "pyqtgraph is not installed. Plotting is unavailable in this environment.",
-                self,
-            )
+            message = "pyqtgraph plotting is unavailable in this environment."
+            reason = get_plotting_unavailable_reason()
+            if reason:
+                message = f"{message}\n\nReason: {reason}"
+            self._placeholder = QLabel(message, self)
             self._placeholder.setWordWrap(True)
             self._layout.addWidget(self._placeholder)
             self._plot_widget = None
@@ -136,7 +151,7 @@ class MultiAxisPlotWidget(QWidget):
 
         base_view = plot_item.vb
         base_view.setMouseEnabled(x=True, y=True)
-        base_view.setMenuEnabled(False)
+        base_view.setMenuEnabled(True)
         primary_group = axis_groups[0]
         plot_item.setLabel("left", primary_group.unit or "Value")
         for series in primary_group.series:
@@ -167,7 +182,7 @@ class MultiAxisPlotWidget(QWidget):
                 plot_item.layout.addItem(axis, 2, 3 + offset - 1)
             axis.setLabel(axis_group.unit or "Value")
 
-            view_box = pg.ViewBox(enableMenu=False)
+            view_box = pg.ViewBox(enableMenu=True)
             plot_item.scene().addItem(view_box)
             axis.linkToView(view_box)
             view_box.setXLink(base_view)
